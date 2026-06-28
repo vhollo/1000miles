@@ -1,0 +1,7 @@
+# @sveltejs/adapter-netlify writes the static site to `build/` and a
+# `sveltekit-render` function (path "/*") to `.netlify/functions-internal/`.
+# Netlify serves prerendered pages + assets statically and falls through to the
+# function for dynamic routes like /api/signal — no manual redirects needed.
+[build]
+  command = "npm run build"
+  publish = "build"

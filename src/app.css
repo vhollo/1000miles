@@ -1,0 +1,62 @@
+@import 'tailwindcss';
+
+/* ---- Playful theme tokens (Tailwind v4 `@theme`) ----------------------- */
+@theme {
+	--font-display: 'Baloo 2', system-ui, sans-serif;
+	--font-body: 'Nunito', system-ui, -apple-system, sans-serif;
+
+	/* Brand "road" blue */
+	--color-road-50: #eef5ff;
+	--color-road-100: #d9e8ff;
+	--color-road-200: #bcd6ff;
+	--color-road-300: #8ebaff;
+	--color-road-400: #5b93ff;
+	--color-road-500: #356bf5;
+	--color-road-600: #2050e0;
+	--color-road-700: #1b3fb8;
+	--color-road-800: #1c3893;
+	--color-road-900: #1d3474;
+
+	/* Warm "paper" surface */
+	--color-cream: #fff7ec;
+	--color-asphalt: #232542;
+}
+
+/* ---- Base ------------------------------------------------------------- */
+:root {
+	color-scheme: light;
+}
+
+html,
+body {
+	height: 100%;
+}
+
+body {
+	font-family: var(--font-body);
+	color: var(--color-asphalt);
+	background:
+		radial-gradient(1200px 600px at 50% -10%, #ffe9b8 0%, transparent 60%),
+		linear-gradient(160deg, #fff7ec 0%, #ffe7d1 45%, #ffd9e6 100%);
+	background-attachment: fixed;
+	-webkit-tap-highlight-color: transparent;
+	overscroll-behavior: none;
+}
+
+h1,
+h2,
+h3,
+.font-display {
+	font-family: var(--font-display);
+}
+
+/* Honour users who prefer less motion. */
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.001ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.001ms !important;
+	}
+}

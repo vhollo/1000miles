@@ -1,0 +1,23 @@
+{
+	"version": "0.0.1",
+	"configurations": [
+		{
+			"name": "millebornes",
+			"runtimeExecutable": "npm",
+			"runtimeArgs": ["run", "dev"],
+			"port": 5173
+		},
+		{
+			"name": "millebornes-prod",
+			"runtimeExecutable": "npm",
+			"runtimeArgs": ["run", "preview", "--", "--port", "4173"],
+			"port": 4173
+		},
+		{
+			"name": "millebornes-dev-alt",
+			"runtimeExecutable": "npm",
+			"runtimeArgs": ["run", "dev", "--", "--port", "5191"],
+			"port": 5191
+		}
+	]
+}
