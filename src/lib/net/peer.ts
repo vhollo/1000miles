@@ -2,17 +2,8 @@ import { decode, encode } from './codec';
 import type { NetMessage } from './protocol';
 import type { Transport } from './transport';
 
-// Public STUN lets peers discover their public address so room-code games can
-// connect across different networks (not just the same Wi-Fi). No data flows
-// through STUN — only NAT discovery. Offline/LAN still works: if STUN is
-// unreachable, gathering falls back to local + mDNS host candidates.
-const RTC_CONFIG: RTCConfiguration = {
-	iceServers: [
-		{ urls: 'stun:stun.l.google.com:19302' },
-		{ urls: 'stun:stun1.l.google.com:19302' }
-	]
-};
-const ICE_TIMEOUT = 2500;
+// TURN relay candidates can take 2–4s to gather; give 9s before falling back.
+const ICE_TIMEOUT = 9000;
 
 class PeerTransport implements Transport {
 	onmessage: ((msg: NetMessage) => void) | null = null;
@@ -82,8 +73,10 @@ class PeerTransport implements Transport {
 }
 
 /** Host: create the channel and an offer code to share with the guest. */
-export async function createHost(): Promise<{ transport: PeerTransport; offerCode: string }> {
-	const pc = new RTCPeerConnection(RTC_CONFIG);
+export async function createHost(
+	iceServers: RTCIceServer[]
+): Promise<{ transport: PeerTransport; offerCode: string }> {
+	const pc = new RTCPeerConnection({ iceServers });
 	const transport = new PeerTransport(pc);
 	transport.attachChannel(pc.createDataChannel('game', { ordered: true }));
 
@@ -95,9 +88,10 @@ export async function createHost(): Promise<{ transport: PeerTransport; offerCod
 
 /** Guest: consume the host's offer and produce an answer code to send back. */
 export async function createGuest(
-	offerCode: string
+	offerCode: string,
+	iceServers: RTCIceServer[]
 ): Promise<{ transport: PeerTransport; answerCode: string }> {
-	const pc = new RTCPeerConnection(RTC_CONFIG);
+	const pc = new RTCPeerConnection({ iceServers });
 	const transport = new PeerTransport(pc);
 	pc.addEventListener('datachannel', (e) => transport.attachChannel(e.channel));
 

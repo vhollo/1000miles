@@ -174,7 +174,8 @@ export class GameStore {
 
 	/** Host: build the channel + offer code to share with the guest. */
 	async beginHost(): Promise<string> {
-		const { transport, offerCode } = await createHost();
+		const iceServers = await fetchIceServers();
+		const { transport, offerCode } = await createHost(iceServers);
 		this.#acceptAnswer = (code) => transport.accept(code);
 		this.#attach('host', transport);
 		return offerCode;
@@ -188,7 +189,8 @@ export class GameStore {
 
 	/** Guest: consume the host's offer and return an answer code to send back. */
 	async beginGuest(offerCode: string): Promise<string> {
-		const { transport, answerCode } = await createGuest(extractCode(offerCode));
+		const iceServers = await fetchIceServers();
+		const { transport, answerCode } = await createGuest(extractCode(offerCode), iceServers);
 		this.#attach('guest', transport);
 		return answerCode;
 	}
@@ -202,7 +204,8 @@ export class GameStore {
 
 	/** Host: publish an offer, get a room code, and poll for the guest's answer. */
 	async hostRoom(): Promise<string> {
-		const { transport, offerCode } = await createHost();
+		const iceServers = await fetchIceServers();
+		const { transport, offerCode } = await createHost(iceServers);
 		this.#acceptAnswer = (code) => transport.accept(code);
 		this.#attach('host', transport);
 		const code = await createRoom(offerCode);
@@ -212,8 +215,9 @@ export class GameStore {
 
 	/** Guest: fetch the host's offer for a code and send back the answer. */
 	async joinRoom(code: string): Promise<void> {
+		const iceServers = await fetchIceServers();
 		const offer = await fetchOffer(code.trim());
-		const { transport, answerCode } = await createGuest(offer);
+		const { transport, answerCode } = await createGuest(offer, iceServers);
 		this.#attach('guest', transport);
 		await postAnswer(code.trim(), answerCode);
 		this.#watchConnect();
@@ -368,6 +372,19 @@ export class GameStore {
  * (an older localStorage save, or a peer running an older build), so the UI
  * never reads an undefined `matchScores`.
  */
+async function fetchIceServers(): Promise<RTCIceServer[]> {
+	try {
+		const res = await fetch('/api/ice');
+		if (res.ok) {
+			const { iceServers } = (await res.json()) as { iceServers: RTCIceServer[] };
+			return iceServers;
+		}
+	} catch {
+		/* fall through */
+	}
+	return [{ urls: 'stun:stun.l.google.com:19302' }];
+}
+
 function migrateState(s: GameState): GameState {
 	if (typeof s.matchTarget !== 'number') s.matchTarget = 3000;
 	if (!Array.isArray(s.matchScores)) s.matchScores = [0, 0];
