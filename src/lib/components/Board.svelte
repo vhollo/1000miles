@@ -20,6 +20,7 @@
 	const active = $derived(game.active);
 	const interactive = $derived(s.phase === 'play' && active === viewer && !me.isAI);
 
+	// drop a stale selection if it leaves the hand or it's no longer our turn
 	$effect(() => {
 		if (!interactive || (selectedId && !me.hand.some((c) => c.id === selectedId))) {
 			selectedId = null;
@@ -50,6 +51,7 @@
 		game.play(move);
 	}
 
+	// Coup Fourré window aimed at the viewer
 	const coupForMe = $derived(game.isCoupFourre && active === viewer && s.pending);
 	const coupSafety = $derived(s.pending ? SAFETY_FOR[s.pending.hazard] : null);
 	const coupMoves = $derived(coupForMe ? game.legal : []);
@@ -58,11 +60,11 @@
 		if (game.isOver) return null;
 		if (game.isCoupFourre) {
 			return active === viewer
-				? { text: 'Coup Fourré — à vous !', tone: 'text-[#4A1260]' }
-				: { text: `${s.players[active].name} contre…`, tone: 'text-[#1C120A]/50' };
+				? { text: 'Coup Fourré chance!', tone: 'text-violet-600' }
+				: { text: `${s.players[active].name} is countering…`, tone: 'text-asphalt/60' };
 		}
-		if (interactive) return { text: 'Votre tour — jouez une carte', tone: 'text-[#1B3A6B]' };
-		return { text: `${s.players[active].name} joue…`, tone: 'text-[#1C120A]/50' };
+		if (interactive) return { text: 'Your turn — make a move', tone: 'text-road-600' };
+		return { text: `${s.players[active].name} is driving`, tone: 'text-asphalt/60' };
 	});
 
 	const discardTop = $derived(s.discardPile.at(-1) ?? null);
@@ -75,35 +77,40 @@
 	<!-- Centre: draw / discard + status ticker -->
 	<div class="flex items-center justify-between gap-3 px-1">
 		<div class="flex items-center gap-2">
-			<!-- Draw pile -->
+			<!-- draw pile -->
 			<div class="relative h-[4.5rem] w-12 shrink-0">
-				<div class="absolute inset-0 rounded-[3px] border border-[#0A1428] bg-[#0F1C3A]"></div>
-				<div class="absolute inset-0 -translate-x-0.5 -translate-y-0.5 grid place-items-center rounded-[3px] border border-[#8090B0]/40 bg-[#1B3A6B]"
-					style="background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.04) 0, rgba(255,255,255,0.04) 1px, transparent 0, transparent 50%); background-size: 8px 8px;">
-					<span class="text-[7px] font-bold tracking-widest text-[#8090B0]">M·B</span>
+				<div class="absolute inset-0 rounded-2xl bg-road-900 shadow-[2px_2px_0_rgba(0,0,0,0.2)]"></div>
+				<div
+					class="absolute inset-0 grid -translate-x-0.5 -translate-y-0.5 place-items-center rounded-2xl bg-road-700 ring-2 ring-white/50"
+				>
+					<span class="text-lg opacity-80">🛣️</span>
 				</div>
-				<span class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 rounded-sm border border-[#0A1428] bg-[#1C120A] px-1.5 text-[0.6rem] font-bold text-[#EDE0BE]">
+				<span
+					class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 rounded-full bg-asphalt px-1.5 text-[0.6rem] font-bold text-white"
+				>
 					{s.drawPile.length}
 				</span>
 			</div>
-			<!-- Discard pile -->
+			<!-- discard pile -->
 			{#if discardTop}
 				<Card card={discardTop} size="sm" />
 			{:else}
-				<div class="grid h-[4.5rem] w-12 shrink-0 place-items-center rounded-[3px] border border-dashed border-[#C4A878]/60 text-[0.55rem] font-bold uppercase tracking-wide text-[#9A8A6A]">
-					défausse
+				<div
+					class="grid h-[4.5rem] w-12 shrink-0 place-items-center rounded-2xl border-2 border-dashed border-asphalt/15 text-[0.55rem] font-bold uppercase text-asphalt/30"
+				>
+					disc
 				</div>
 			{/if}
 		</div>
 
 		<div class="min-w-0 flex-1 text-right">
 			{#if banner}
-				<p class="truncate font-display text-sm font-bold {banner.tone}">
+				<p class="truncate font-display text-sm font-extrabold {banner.tone}">
 					{banner.text}{#if game.thinking}<span class="thinking-dots"></span>{/if}
 				</p>
 			{/if}
 			{#if s.log.at(-1)}
-				<p class="truncate font-body text-[0.7rem] italic text-[#1C120A]/45">{s.log.at(-1)?.text}</p>
+				<p class="truncate text-[0.7rem] text-asphalt/50">{s.log.at(-1)?.text}</p>
 			{/if}
 		</div>
 	</div>
@@ -118,34 +125,33 @@
 				<button
 					onclick={playSelected}
 					disabled={!canPlaySelected}
-					class="rounded-[3px] border border-[#1A5430] bg-[#1A5430] px-4 py-2 font-display text-sm font-bold text-[#EDE0BE]
-						shadow-[0_3px_0_#0E3020] transition active:translate-y-0.5 active:shadow-none
-						disabled:cursor-not-allowed disabled:border-[#9A8A6A]/40 disabled:bg-[#C4A878]/30 disabled:text-[#9A8A6A] disabled:shadow-none"
+					class="rounded-xl bg-emerald-500 px-4 py-2 font-display text-sm font-bold text-white shadow-[0_3px_0_#15803d]
+						transition active:translate-y-0.5 active:shadow-none disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
 				>
-					{selectedCard.kind === 'hazard' ? `Attaquer ${opp.name}` : 'Jouer'}
+					{selectedCard.kind === 'hazard' ? `Attack ${opp.name}` : 'Play'}
 				</button>
 				<button
 					onclick={discardSelected}
-					class="rounded-[3px] border border-[#C4A878] bg-[#FBF5E4] px-4 py-2 font-display text-sm font-bold text-[#1C120A]
-						shadow-[0_3px_0_rgba(0,0,0,0.12)] transition active:translate-y-0.5 active:shadow-none"
+					class="rounded-xl bg-white px-4 py-2 font-display text-sm font-bold text-asphalt shadow-[0_3px_0_rgba(0,0,0,0.12)]
+						transition active:translate-y-0.5 active:shadow-none"
 				>
-					Défausser
+					Discard
 				</button>
 				<button
 					onclick={() => (selectedId = null)}
-					class="rounded-[3px] px-3 py-2 text-sm font-bold text-[#1C120A]/40"
+					class="rounded-xl px-3 py-2 text-sm font-bold text-asphalt/50"
 				>
 					✕
 				</button>
 			</div>
 		{:else if interactive}
-			<p class="text-center font-body text-[0.7rem] italic text-[#1C120A]/35">
-				Sélectionnez une carte pour jouer ou défausser
+			<p class="text-center text-[0.7rem] font-semibold uppercase tracking-widest text-asphalt/35">
+				tap a card to play or discard
 			</p>
 		{/if}
 	</div>
 
-	<!-- Hand -->
+	<!-- Hand (raised above siblings so nothing can ever overlay/block the cards) -->
 	<div class="relative z-10 pb-2">
 		<Hand
 			cards={me.hand}
@@ -162,23 +168,23 @@
 	{#if s.pending && coupSafety}
 		<div class="text-center">
 			<div class="mb-1 text-4xl">{SAFETY_META[coupSafety].emoji}</div>
-			<h2 id="coup-title" class="font-display text-xl font-bold text-[#1C120A]">Coup Fourré ?</h2>
-			<p class="mt-1 font-body text-sm text-[#1C120A]/70">
-				{s.players[s.pending.by].name} vous attaque avec
-				<em>{cardMeta(s.pending.card).label}</em>. Révélez votre
-				<em>{SAFETY_META[coupSafety].label}</em> pour
-				<strong class="text-[#4A1260]">+300 pts</strong> et volez le tour !
+			<h2 id="coup-title" class="font-display text-xl font-extrabold text-asphalt">Coup Fourré?</h2>
+			<p class="mt-1 text-sm text-asphalt/70">
+				{s.players[s.pending.by].name} hit you with
+				<strong>{cardMeta(s.pending.card).label}</strong>. Reveal your
+				<strong>{SAFETY_META[coupSafety].label}</strong> now for
+				<strong class="text-violet-600">+300</strong> and steal the turn!
 			</p>
 			<div class="mt-4 flex flex-col gap-2">
 				{#each coupMoves as m (m.type)}
 					<button
 						onclick={() => resolveCoup(m)}
-						class="rounded-[3px] border px-4 py-3 font-display font-bold transition active:translate-y-0.5
+						class="rounded-2xl px-4 py-3 font-display font-bold transition active:translate-y-0.5
 							{m.type === 'coupFourre'
-							? 'border-[#4A1260] bg-[#4A1260] text-white shadow-[0_4px_0_#2A0840] active:shadow-none'
-							: 'border-[#C4A878] bg-[#FBF5E4] text-[#1C120A]/70 shadow-[0_3px_0_rgba(0,0,0,0.1)] active:shadow-none'}"
+							? 'bg-violet-500 text-white shadow-[0_4px_0_#6d28d9] active:shadow-none'
+							: 'bg-white text-asphalt/70 shadow-[0_3px_0_rgba(0,0,0,0.1)] active:shadow-none'}"
 					>
-						{m.type === 'coupFourre' ? 'Coup Fourré ! 🛡️' : 'Accepter l\'attaque'}
+						{m.type === 'coupFourre' ? 'Coup Fourré! 🛡️' : 'Take the hit'}
 					</button>
 				{/each}
 			</div>
@@ -211,9 +217,17 @@
 		animation: dots 1.2s steps(4, end) infinite;
 	}
 	@keyframes dots {
-		0%   { content: ''; }
-		25%  { content: '.'; }
-		50%  { content: '..'; }
-		75%  { content: '...'; }
+		0% {
+			content: '';
+		}
+		25% {
+			content: '.';
+		}
+		50% {
+			content: '..';
+		}
+		75% {
+			content: '...';
+		}
 	}
 </style>

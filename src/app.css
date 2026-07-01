@@ -1,28 +1,28 @@
 @import 'tailwindcss';
 
-/* ---- 1954 Vintage theme tokens ----------------------------------------- */
+/* ---- Playful theme tokens (Tailwind v4 `@theme`) ----------------------- */
 @theme {
-	--font-display: 'Playfair Display', Georgia, 'Times New Roman', serif;
-	--font-body: 'Lora', Georgia, 'Times New Roman', serif;
+	--font-display: 'Baloo 2', system-ui, sans-serif;
+	--font-body: 'Nunito', system-ui, -apple-system, sans-serif;
 
-	/* French racing navy */
-	--color-road-50: #EBF0F8;
-	--color-road-100: #C5D3E8;
-	--color-road-200: #9BB2D0;
-	--color-road-300: #6888B0;
-	--color-road-400: #3D608A;
-	--color-road-500: #1B3A6B;
-	--color-road-600: #152D54;
-	--color-road-700: #0F203D;
-	--color-road-800: #091528;
-	--color-road-900: #040A14;
+	/* Brand "road" blue */
+	--color-road-50: #eef5ff;
+	--color-road-100: #d9e8ff;
+	--color-road-200: #bcd6ff;
+	--color-road-300: #8ebaff;
+	--color-road-400: #5b93ff;
+	--color-road-500: #356bf5;
+	--color-road-600: #2050e0;
+	--color-road-700: #1b3fb8;
+	--color-road-800: #1c3893;
+	--color-road-900: #1d3474;
 
-	/* Aged parchment surface */
-	--color-cream: #EDE0BE;
-	--color-asphalt: #1C120A;
+	/* Warm "paper" surface */
+	--color-cream: #fff7ec;
+	--color-asphalt: #232542;
 }
 
-/* ---- Base --------------------------------------------------------------- */
+/* ---- Base ------------------------------------------------------------- */
 :root {
 	color-scheme: light;
 }
@@ -36,8 +36,8 @@ body {
 	font-family: var(--font-body);
 	color: var(--color-asphalt);
 	background:
-		radial-gradient(ellipse 140% 55% at 25% -5%, #F8EDD0 0%, transparent 65%),
-		linear-gradient(170deg, #EAD9A8 0%, #D4C07A 55%, #C8B060 100%);
+		radial-gradient(1200px 600px at 50% -10%, #ffe9b8 0%, transparent 60%),
+		linear-gradient(160deg, #fff7ec 0%, #ffe7d1 45%, #ffd9e6 100%);
 	background-attachment: fixed;
 	-webkit-tap-highlight-color: transparent;
 	overscroll-behavior: none;

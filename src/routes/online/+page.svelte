@@ -8,11 +8,12 @@
 	type Mode = 'menu' | 'host' | 'join' | 'manual';
 	let mode = $state<Mode>('menu');
 
-	let roomCode = $state('');
-	let joinCode = $state('');
+	let roomCode = $state(''); // host's 4-digit code
+	let joinCode = $state(''); // guest's input
 	let busy = $state(false);
 	let error = $state<string | null>(null);
 
+	// manual fallback state
 	let manualStep = $state<'choose' | 'host' | 'joinInput' | 'guest'>('choose');
 	let offerCode = $state('');
 	let answerCode = $state('');
@@ -30,9 +31,11 @@
 		}
 	});
 
+	// Both peers jump to the board the instant the channel opens.
 	$effect(() => {
 		if (game.connected) goto(`${base}/play`);
 	});
+	// Surface connection errors raised by the store (e.g. nobody joined).
 	$effect(() => {
 		if (game.netError) {
 			error = game.netError;
@@ -40,6 +43,7 @@
 		}
 	});
 
+	/* ---- room code (online via Netlify) ---- */
 	async function hostGame() {
 		mode = 'host';
 		busy = true;
@@ -47,7 +51,7 @@
 		try {
 			roomCode = await game.hostRoom();
 		} catch {
-			error = 'Impossible de créer la salle. Êtes-vous connecté ?';
+			error = 'Could not create a room. Are you online?';
 		}
 		busy = false;
 	}
@@ -57,12 +61,14 @@
 		error = null;
 		try {
 			await game.joinRoom(joinCode);
+			// success navigates via the connected effect
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Impossible de rejoindre cette salle.';
+			error = e instanceof Error ? e.message : 'Could not join that room.';
 			busy = false;
 		}
 	}
 
+	/* ---- manual / offline fallback ---- */
 	function shareLink(key: 'j' | 'a', code: string): string {
 		return origin ? `${origin}${base}/online#${key}=${code}` : '';
 	}
@@ -73,7 +79,7 @@
 		try {
 			offerCode = await game.beginHost();
 		} catch {
-			error = "Impossible de démarrer l'hébergement.";
+			error = 'Could not start hosting.';
 		}
 		busy = false;
 	}
@@ -84,7 +90,7 @@
 		try {
 			answerCode = await game.beginGuest(invite);
 		} catch {
-			error = "Code d'invitation invalide.";
+			error = "Couldn't read that invite.";
 			manualStep = 'joinInput';
 		}
 		busy = false;
@@ -95,7 +101,7 @@
 		try {
 			await game.submitAnswer(pasteValue);
 		} catch {
-			error = "Code de réponse invalide.";
+			error = "Couldn't read that reply.";
 		}
 		busy = false;
 	}
@@ -107,71 +113,67 @@
 </script>
 
 <svelte:head>
-	<title>En ligne — Mille Bornes</title>
+	<title>Play online — Mille Bornes</title>
 </svelte:head>
 
-<main class="mx-auto flex min-h-[100dvh] max-w-sm flex-col px-6 py-6">
-	<button onclick={cancel} class="self-start font-body text-sm font-semibold text-[#1B3A6B]">← Retour</button>
-
-	<div class="mt-4 flex items-center gap-3">
-		<hr class="flex-1 border-[#B8880E]/50" />
-		<span class="text-[#B8880E]">✦</span>
-		<hr class="flex-1 border-[#B8880E]/50" />
-	</div>
-	<h1 class="mt-3 font-display text-3xl font-bold italic text-[#1C120A]">En ligne</h1>
+<main class="mx-auto flex min-h-[100dvh] max-w-md flex-col px-5 py-6">
+	<button onclick={cancel} class="self-start text-sm font-bold text-road-600">← Back</button>
+	<h1 class="mt-3 font-display text-3xl font-extrabold text-asphalt">Play online</h1>
 
 	{#if error}
-		<p class="mt-3 rounded-[3px] border border-[#9A1020]/30 bg-[#9A1020]/10 px-3 py-2 font-body text-sm text-[#9A1020]">{error}</p>
+		<p class="mt-3 rounded-xl bg-rose-100 px-3 py-2 text-sm font-semibold text-rose-700">{error}</p>
 	{/if}
 
-	<div class="mt-6 flex flex-1 flex-col gap-3">
+	<div class="mt-6 flex flex-1 flex-col gap-4">
 		{#if mode === 'menu'}
 			<button
 				onclick={hostGame}
-				class="rounded-[3px] border border-[#0F2042] bg-[#1B3A6B] px-5 py-4 text-left
-					font-display text-base font-bold text-[#EDE0BE]
-					shadow-[0_4px_0_#0A1428] transition active:translate-y-1 active:shadow-none"
+				class="rounded-2xl bg-road-500 px-5 py-5 text-left font-display text-lg font-extrabold text-white shadow-[0_5px_0_var(--color-road-700)] transition active:translate-y-1 active:shadow-none"
 			>
-				Créer une salle
-				<span class="mt-0.5 block font-body text-sm font-normal text-[#EDE0BE]/70">Obtenez un code à partager</span>
+				📡 Host a game
+				<span class="block text-sm font-semibold opacity-80">Get a room code to share</span>
 			</button>
 			<button
-				onclick={() => { mode = 'join'; error = null; }}
-				class="rounded-[3px] border border-[#6A0818] bg-[#9A1020] px-5 py-4 text-left
-					font-display text-base font-bold text-[#EDE0BE]
-					shadow-[0_4px_0_#4A0410] transition active:translate-y-1 active:shadow-none"
+				onclick={() => {
+					mode = 'join';
+					error = null;
+				}}
+				class="rounded-2xl bg-rose-500 px-5 py-5 text-left font-display text-lg font-extrabold text-white shadow-[0_5px_0_#be123c] transition active:translate-y-1 active:shadow-none"
 			>
-				Rejoindre une salle
-				<span class="mt-0.5 block font-body text-sm font-normal text-[#EDE0BE]/70">Entrez un code à 4 chiffres</span>
+				🔢 Join a game
+				<span class="block text-sm font-semibold opacity-80">Enter a 4-digit room code</span>
 			</button>
 			<button
-				onclick={() => { mode = 'manual'; error = null; }}
-				class="mt-1 text-center font-body text-sm text-[#1C120A]/45 underline"
+				onclick={() => {
+					mode = 'manual';
+					error = null;
+				}}
+				class="mt-2 text-center text-sm font-bold text-asphalt/50 underline"
 			>
-				Connexion manuelle (même Wi-Fi)
+				No internet? Connect manually (same Wi-Fi)
 			</button>
-
 		{:else if mode === 'host'}
 			{#if busy && !roomCode}
-				<p class="font-body italic text-[#1C120A]/60">Création de la salle…</p>
+				<p class="font-display font-bold text-asphalt/60">Creating room…</p>
 			{:else if roomCode}
-				<div class="rounded-[3px] border-2 border-[#B8880E]/60 bg-[#FBF5E4] p-6 text-center">
-					<p class="font-body text-xs uppercase tracking-widest text-[#1C120A]/40">Code de salle</p>
-					<p class="my-3 font-display text-6xl font-black tracking-[0.2em] tabular-nums text-[#1B3A6B]">
+				<div class="rounded-3xl border-4 border-road-200 bg-white/80 p-6 text-center">
+					<p class="font-display text-sm font-bold uppercase tracking-widest text-asphalt/40">
+						Room code
+					</p>
+					<p class="my-2 font-display text-6xl font-extrabold tracking-[0.2em] text-road-600 tabular-nums">
 						{roomCode}
 					</p>
-					<p class="font-body text-sm text-[#1C120A]/55">Communiquez ce code à votre adversaire.</p>
+					<p class="text-sm text-asphalt/60">Tell your friend this code to join.</p>
 				</div>
-				<div class="flex items-center justify-center gap-2 text-[#1C120A]/50">
-					<span class="h-2.5 w-2.5 animate-ping rounded-full bg-[#1B3A6B]/60"></span>
-					<span class="font-body italic">En attente…</span>
+				<div class="flex items-center justify-center gap-2 text-asphalt/60">
+					<span class="h-3 w-3 animate-ping rounded-full bg-road-400"></span>
+					<span class="font-display font-bold">Waiting for them to join…</span>
 				</div>
 			{/if}
-
 		{:else if mode === 'join'}
-			<div class="rounded-[3px] border border-[#C4A878]/80 bg-[#FBF5E4] p-4">
-				<label for="code" class="font-display text-sm font-bold text-[#1C120A]">
-					Code de salle (4 chiffres)
+			<div class="rounded-2xl border-2 border-white bg-white/70 p-4">
+				<label for="code" class="font-display text-sm font-extrabold text-asphalt">
+					Enter the room code
 				</label>
 				<input
 					id="code"
@@ -179,107 +181,88 @@
 					inputmode="numeric"
 					maxlength="4"
 					placeholder="1234"
-					class="mt-2 w-full rounded-[3px] border border-[#C4A878]/60 bg-[#EDE0BE]/60 py-3 text-center
-						font-display text-4xl font-bold tracking-[0.3em] tabular-nums text-[#1C120A]
-						outline-none focus:border-[#1B3A6B] focus:ring-1 focus:ring-[#1B3A6B]/40"
+					class="mt-2 w-full rounded-xl bg-asphalt/5 py-3 text-center font-display text-4xl font-extrabold tracking-[0.3em] tabular-nums text-asphalt outline-none ring-road-300 focus:ring-2"
 				/>
 				<button
 					onclick={joinGame}
 					disabled={busy || joinCode.trim().length < 4}
-					class="mt-3 w-full rounded-[3px] border border-[#6A0818] bg-[#9A1020] px-4 py-3
-						font-display font-bold text-[#EDE0BE]
-						shadow-[0_3px_0_#4A0410] transition active:translate-y-0.5 active:shadow-none
-						disabled:border-[#C4A878]/40 disabled:bg-[#C4A878]/30 disabled:text-[#9A8A6A] disabled:shadow-none"
+					class="mt-3 w-full rounded-xl bg-rose-500 px-4 py-3 font-display font-bold text-white shadow-[0_4px_0_#be123c] transition active:translate-y-0.5 active:shadow-none disabled:bg-slate-300 disabled:shadow-none"
 				>
-					{busy ? 'Connexion…' : 'Rejoindre'}
+					{busy ? 'Connecting…' : 'Join'}
 				</button>
 			</div>
-
 		{:else if mode === 'manual'}
 			{#if manualStep === 'choose'}
-				<p class="font-body text-sm italic text-[#1C120A]/55">Les deux appareils doivent être sur le même Wi-Fi.</p>
+				<p class="text-sm text-asphalt/60">Both devices must be on the same Wi-Fi.</p>
 				<button
 					onclick={manualHost}
-					class="rounded-[3px] border border-[#0F2042] bg-[#1B3A6B] px-5 py-4
-						font-display font-bold text-[#EDE0BE]
-						shadow-[0_4px_0_#0A1428] transition active:translate-y-1 active:shadow-none"
+					class="rounded-2xl bg-road-500 px-5 py-4 font-display font-extrabold text-white shadow-[0_4px_0_var(--color-road-700)] transition active:translate-y-1 active:shadow-none"
 				>
-					Hôte — créer une invitation
+					📡 Host (create an invite)
 				</button>
 				<button
 					onclick={() => (manualStep = 'joinInput')}
-					class="rounded-[3px] border border-[#6A0818] bg-[#9A1020] px-5 py-4
-						font-display font-bold text-[#EDE0BE]
-						shadow-[0_4px_0_#4A0410] transition active:translate-y-1 active:shadow-none"
+					class="rounded-2xl bg-rose-500 px-5 py-4 font-display font-extrabold text-white shadow-[0_4px_0_#be123c] transition active:translate-y-1 active:shadow-none"
 				>
-					Invité — coller une invitation
+					🔗 Join (paste an invite)
 				</button>
-
 			{:else if manualStep === 'host'}
 				{#if busy && !offerCode}
-					<p class="font-body italic text-[#1C120A]/60">Génération de l'invitation…</p>
+					<p class="font-display font-bold text-asphalt/60">Generating invite…</p>
 				{:else}
 					<SignalExchange
 						code={offerCode}
 						link={shareLink('j', offerCode)}
-						label="1 · Envoyez cette invitation à votre ami"
-						hint="Partagez le lien ou copiez le code."
+						label="1 · Send this invite to your friend"
+						hint="Share the link or copy the code."
 					/>
-					<div class="rounded-[3px] border border-[#C4A878]/80 bg-[#FBF5E4] p-3">
-						<p class="mb-1 font-display text-sm font-bold text-[#1C120A]">2 · Collez la réponse de votre ami</p>
+					<div class="rounded-2xl border-2 border-white bg-white/70 p-3">
+						<p class="mb-1 font-display text-sm font-extrabold text-asphalt">2 · Paste their reply</p>
 						<textarea
 							bind:value={pasteValue}
 							rows="3"
-							placeholder="Collez le code de réponse…"
-							class="w-full rounded-[3px] border border-[#C4A878]/50 bg-[#EDE0BE]/60 p-2 font-mono text-xs text-[#1C120A] outline-none focus:border-[#1B3A6B]"
+							placeholder="Paste the reply code or link…"
+							class="w-full rounded-xl bg-asphalt/5 p-2 font-mono text-xs text-asphalt outline-none ring-road-300 focus:ring-2"
 						></textarea>
 						<button
 							onclick={manualConnect}
 							disabled={busy || !pasteValue.trim()}
-							class="mt-2 w-full rounded-[3px] border border-[#0E3020] bg-[#1A5430] px-3 py-2.5
-								font-display font-bold text-[#EDE0BE]
-								shadow-[0_3px_0_#091E18] transition active:translate-y-0.5 active:shadow-none
-								disabled:border-[#C4A878]/40 disabled:bg-[#C4A878]/30 disabled:text-[#9A8A6A] disabled:shadow-none"
+							class="mt-2 w-full rounded-xl bg-emerald-500 px-3 py-2.5 font-display font-bold text-white shadow-[0_3px_0_#15803d] transition active:translate-y-0.5 active:shadow-none disabled:bg-slate-300 disabled:shadow-none"
 						>
-							{busy ? 'Connexion…' : 'Connecter'}
+							{busy ? 'Connecting…' : 'Connect'}
 						</button>
 					</div>
 				{/if}
-
 			{:else if manualStep === 'joinInput'}
-				<div class="rounded-[3px] border border-[#C4A878]/80 bg-[#FBF5E4] p-3">
-					<p class="mb-1 font-display text-sm font-bold text-[#1C120A]">Collez l'invitation</p>
+				<div class="rounded-2xl border-2 border-white bg-white/70 p-3">
+					<p class="mb-1 font-display text-sm font-extrabold text-asphalt">Paste the invite</p>
 					<textarea
 						bind:value={pasteValue}
 						rows="3"
-						placeholder="Collez le code ou le lien d'invitation…"
-						class="w-full rounded-[3px] border border-[#C4A878]/50 bg-[#EDE0BE]/60 p-2 font-mono text-xs text-[#1C120A] outline-none focus:border-[#1B3A6B]"
+						placeholder="Paste the invite code or link…"
+						class="w-full rounded-xl bg-asphalt/5 p-2 font-mono text-xs text-asphalt outline-none ring-road-300 focus:ring-2"
 					></textarea>
 					<button
 						onclick={() => manualJoin(pasteValue)}
 						disabled={busy || !pasteValue.trim()}
-						class="mt-2 w-full rounded-[3px] border border-[#6A0818] bg-[#9A1020] px-3 py-2.5
-							font-display font-bold text-[#EDE0BE]
-							shadow-[0_3px_0_#4A0410] transition active:translate-y-0.5 active:shadow-none
-							disabled:border-[#C4A878]/40 disabled:bg-[#C4A878]/30 disabled:text-[#9A8A6A] disabled:shadow-none"
+						class="mt-2 w-full rounded-xl bg-rose-500 px-3 py-2.5 font-display font-bold text-white shadow-[0_3px_0_#be123c] transition active:translate-y-0.5 active:shadow-none disabled:bg-slate-300 disabled:shadow-none"
 					>
-						{busy ? 'Lecture…' : 'Générer la réponse'}
+						{busy ? 'Reading…' : 'Generate reply'}
 					</button>
 				</div>
-
 			{:else if manualStep === 'guest'}
 				{#if busy && !answerCode}
-					<p class="font-body italic text-[#1C120A]/60">Génération de la réponse…</p>
+					<p class="font-display font-bold text-asphalt/60">Generating reply…</p>
 				{:else}
 					<SignalExchange
 						code={answerCode}
 						link={shareLink('a', answerCode)}
-						label="Renvoyez cette réponse à l'hôte"
-						hint="L'hôte collera ce code pour terminer la connexion."
+						label="Send this reply back to the host"
+						hint="They'll paste it to finish connecting."
 					/>
-					<div class="flex items-center justify-center gap-2 text-[#1C120A]/50">
-						<span class="h-2.5 w-2.5 animate-ping rounded-full bg-[#1B3A6B]/60"></span>
-						<span class="font-body italic">En attente de l'hôte…</span>
+					<div class="flex items-center justify-center gap-2 text-asphalt/60">
+						<span class="h-3 w-3 animate-ping rounded-full bg-road-400"></span>
+						<span class="font-display font-bold">Waiting for the host…</span>
 					</div>
 				{/if}
 			{/if}

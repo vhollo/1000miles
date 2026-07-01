@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { cardMeta, type Card, type CardMeta, type CardKind } from '$lib/game/cards';
+	import { cardMeta, type Card, type CardMeta } from '$lib/game/cards';
 
 	type Size = 'sm' | 'md' | 'lg';
 	let {
@@ -23,64 +23,20 @@
 	const meta = $derived<CardMeta>(cardMeta(card));
 	const isDistance = $derived(card.kind === 'distance');
 
-	/* Vintage header-band colour per hue */
-	const BAND: Record<CardMeta['hue'], string> = {
-		road:    'bg-[#1B3A6B]',
-		rose:    'bg-[#9A1020]',
-		emerald: 'bg-[#1A5430]',
-		amber:   'bg-[#8A5A08]',
-		violet:  'bg-[#4A1260]',
-		slate:   'bg-[#3A4050]',
-		sky:     'bg-[#1A4870]'
-	};
-
-	/* Authentic French category labels */
-	const KIND_LABEL: Record<CardKind, string> = {
-		distance: 'Distance',
-		hazard:   'Attaque',
-		remedy:   'Parade',
-		safety:   'Botte'
-	};
-
-	/* Number colour per hue (for distance cards) */
-	const NUM_COLOR: Record<CardMeta['hue'], string> = {
-		road:    'text-[#1B3A6B]',
-		rose:    'text-[#9A1020]',
-		emerald: 'text-[#1A5430]',
-		amber:   'text-[#8A5A08]',
-		violet:  'text-[#4A1260]',
-		slate:   'text-[#3A4050]',
-		sky:     'text-[#1A4870]'
+	const HUE: Record<CardMeta['hue'], string> = {
+		road: 'from-sky-400 to-blue-600',
+		rose: 'from-rose-400 to-red-600',
+		emerald: 'from-emerald-400 to-green-600',
+		amber: 'from-amber-300 to-orange-500',
+		violet: 'from-violet-400 to-fuchsia-600',
+		slate: 'from-slate-300 to-slate-500',
+		sky: 'from-sky-300 to-cyan-500'
 	};
 
 	const SIZE: Record<Size, string> = {
-		sm: 'w-12 h-[4.5rem]',
-		md: 'w-16 h-24',
-		lg: 'w-20 h-[7.5rem]'
-	};
-
-	const BAND_TEXT: Record<Size, string> = {
-		sm: 'text-[6px]',
-		md: 'text-[7px]',
-		lg: 'text-[8px]'
-	};
-
-	const NUM_SIZE: Record<Size, string> = {
-		sm: 'text-xl',
-		md: 'text-2xl',
-		lg: 'text-3xl'
-	};
-
-	const EMOJI_SIZE: Record<Size, string> = {
-		sm: 'text-base',
-		md: 'text-xl',
-		lg: 'text-2xl'
-	};
-
-	const LABEL_SIZE: Record<Size, string> = {
-		sm: 'text-[6px]',
-		md: 'text-[8px]',
-		lg: 'text-[9px]'
+		sm: 'w-12 h-[4.5rem] text-[0.6rem]',
+		md: 'w-16 h-24 text-xs',
+		lg: 'w-20 h-30 text-sm'
 	};
 </script>
 
@@ -89,52 +45,41 @@
 	{onclick}
 	disabled={!onclick}
 	aria-label={meta.label}
-	class="card-face group relative shrink-0 select-none overflow-hidden rounded-[3px]
-		border border-[#C4A878] bg-[#FBF5E4] flex flex-col
-		shadow-[1px_3px_8px_rgba(0,0,0,0.28)]
-		transition-all duration-200
-		{SIZE[size]}
+	class="card-face group relative shrink-0 select-none rounded-2xl bg-gradient-to-b p-[3px]
+		shadow-[0_6px_0_rgba(0,0,0,0.18)] transition-all duration-200
+		{SIZE[size]} {faceDown ? 'from-road-700 to-road-900' : HUE[meta.hue]}
 		{onclick ? 'cursor-pointer' : 'cursor-default'}
-		{selected ? '-translate-y-3 ring-2 ring-[#B8880E] shadow-[2px_10px_18px_rgba(0,0,0,0.35)]' : ''}
-		{playable ? 'hover:-translate-y-2' : ''}
-		{dim ? 'opacity-40 saturate-50' : ''}"
+		{selected ? '-translate-y-3 ring-4 ring-amber-300 shadow-[0_12px_0_rgba(0,0,0,0.18)]' : ''}
+		{playable ? 'hover:-translate-y-2 ring-2 ring-white/70' : ''}
+		{dim ? 'opacity-45 saturate-50' : ''}"
 >
 	{#if faceDown}
-		<!-- Classic hatched card back -->
-		<span class="flex h-full w-full flex-col bg-[#1B3A6B]">
-			<span class="flex flex-1 items-center justify-center"
-				style="background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.06) 0, rgba(255,255,255,0.06) 1px, transparent 0, transparent 50%); background-size: 8px 8px;">
-				<span class="border border-[#8090B0]/50 px-1 py-0.5 text-[6px] font-bold uppercase tracking-[0.2em] text-[#8090B0]">
-					M · B
-				</span>
-			</span>
+		<span class="grid h-full w-full place-items-center rounded-[0.85rem] bg-road-800/60">
+			<span class="text-lg opacity-80">🛣️</span>
 		</span>
 	{:else}
-		<!-- Category band -->
-		<span class="block w-full py-[3px] text-center font-bold uppercase tracking-[0.15em] text-white {BAND[meta.hue]} {BAND_TEXT[size]}">
-			{KIND_LABEL[card.kind]}
-		</span>
+		<span
+			class="relative flex h-full w-full flex-col items-center justify-between
+				overflow-hidden rounded-[0.85rem] bg-white/92 px-1 py-1.5 text-asphalt"
+		>
+			<span
+				class="self-stretch text-center font-display font-extrabold uppercase leading-none tracking-tight
+					{isDistance ? 'text-transparent' : ''}"
+			>
+				{#if !isDistance}{meta.short}{/if}
+			</span>
 
-		<!-- Card body -->
-		<span class="relative flex flex-1 flex-col items-center justify-around px-1 py-1">
 			{#if isDistance}
-				<span class="font-display font-bold leading-none {NUM_SIZE[size]} {NUM_COLOR[meta.hue]}">
-					{meta.label}
-				</span>
-				<span class="font-body uppercase tracking-widest text-[#9A8A6A] {LABEL_SIZE[size]}">miles</span>
+				<span class="font-display text-2xl font-extrabold leading-none text-road-600">{meta.label}</span>
+				<span class="text-[0.55rem] font-bold uppercase tracking-widest text-road-400">miles</span>
 			{:else}
-				<span class="leading-none {EMOJI_SIZE[size]}">{meta.emoji}</span>
-				<span class="text-center font-body font-semibold leading-tight text-[#2C1C0C] {LABEL_SIZE[size]}">
-					{meta.label}
-				</span>
+				<span class="text-2xl leading-none drop-shadow-sm">{meta.emoji}</span>
+				<span class="self-stretch text-center font-bold leading-tight text-slate-500">{meta.label}</span>
 			{/if}
 
 			{#if playable}
-				<span class="pointer-events-none absolute inset-x-0 bottom-0 h-[2px] bg-[#B8880E]"></span>
+				<span class="pointer-events-none absolute inset-x-0 -bottom-0.5 h-1 bg-amber-300/80"></span>
 			{/if}
 		</span>
-
-		<!-- Thin inner border inset for double-border effect -->
-		<span class="pointer-events-none absolute inset-[3px] rounded-[2px] border border-[#C4A878]/40"></span>
 	{/if}
 </button>
