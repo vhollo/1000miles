@@ -4,6 +4,7 @@
 	import { cardMeta, SAFETY_FOR, SAFETY_META } from '$lib/game/cards';
 	import { other, type Move, type PlayerIndex } from '$lib/game/state';
 	import { game } from '$lib/stores/game.svelte';
+	import { GOAL, isRolling, isSpeedLimited, totalMiles } from '$lib/game/rules';
 	import Card from './Card.svelte';
 	import Hand from './Hand.svelte';
 	import Modal from './Modal.svelte';
@@ -29,6 +30,17 @@
 
 	const selectedCard = $derived(me.hand.find((c) => c.id === selectedId) ?? null);
 	const canPlaySelected = $derived(!!selectedId && game.playableIds.has(selectedId));
+
+	const whyNotPlayable = $derived.by((): string | null => {
+		if (!selectedCard || canPlaySelected) return null;
+		if (selectedCard.kind === 'distance') {
+			if (!isRolling(me)) return 'Play a Roll card first to start driving';
+			if (isSpeedLimited(me) && selectedCard.value > 50) return 'Speed limit — you can only play 25 or 50 miles';
+			if (totalMiles(me) + selectedCard.value > GOAL) return 'Would exceed 1000 miles';
+			if (selectedCard.value === 200 && me.twoHundredsPlayed >= 2) return 'Max 2 × 200-mile cards per hand';
+		}
+		return null;
+	});
 
 	function onselect(id: string) {
 		selectedId = selectedId === id ? null : id;
@@ -120,6 +132,9 @@
 
 	<!-- Action bar -->
 	<div class="min-h-[2.75rem]">
+		{#if interactive && selectedCard && whyNotPlayable}
+			<p class="mb-1 text-center text-xs font-semibold text-amber-600">{whyNotPlayable}</p>
+		{/if}
 		{#if interactive && selectedCard}
 			<div class="flex items-center justify-center gap-2">
 				<button
