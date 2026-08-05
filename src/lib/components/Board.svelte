@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
-	import { cardMeta, SAFETY_FOR, SAFETY_META } from '$lib/game/cards';
+	import { cardMeta, HAZARD_META, SAFETY_FOR, SAFETY_META } from '$lib/game/cards';
 	import { other, type Move, type PlayerIndex } from '$lib/game/state';
 	import { game } from '$lib/stores/game.svelte';
-	import { GOAL, isRolling, isSpeedLimited, totalMiles } from '$lib/game/rules';
+	import { GOAL, isRolling, isSpeedLimited, isProtectedFrom, totalMiles } from '$lib/game/rules';
 	import Card from './Card.svelte';
 	import Hand from './Hand.svelte';
 	import Modal from './Modal.svelte';
@@ -39,10 +39,40 @@
 			if (totalMiles(me) + selectedCard.value > GOAL) return 'Would exceed 1000 miles';
 			if (selectedCard.value === 200 && me.twoHundredsPlayed >= 2) return 'Max 2 × 200-mile cards per hand';
 		}
+		if (selectedCard.kind === 'hazard') {
+			const h = selectedCard.hazard;
+			if (isProtectedFrom(opp, h)) return `Opponent has ${SAFETY_META[SAFETY_FOR[h]].label} — immune`;
+			if (h === 'speedLimit') return 'Opponent already has a speed limit';
+			if (!isRolling(opp)) return 'Opponent is already stopped — can only attack a rolling car';
+		}
+		if (selectedCard.kind === 'remedy') {
+			const r = selectedCard.remedy;
+			const topCard = me.battle.at(-1);
+			if (r === 'endOfLimit') return 'You are not under a Speed Limit';
+			if (r === 'roll') {
+				if (me.safeties.includes('rightOfWay')) return 'Right of Way — you never need a Roll card';
+				if (isRolling(me)) return 'Already rolling';
+				return null;
+			}
+			const fixes: Record<'repairs' | 'gasoline' | 'spareTire', string> = {
+				repairs: 'Accident', gasoline: 'Out of Gas', spareTire: 'Flat Tire'
+			};
+			const needs = fixes[r as 'repairs' | 'gasoline' | 'spareTire'];
+			if (topCard?.kind === 'hazard')
+				return `You have ${HAZARD_META[topCard.hazard].label}, not ${needs} — wrong remedy`;
+			return `No hazard to fix — only needed after ${needs}`;
+		}
 		return null;
 	});
 
 	function onselect(id: string) {
+		const card = me.hand.find((c) => c.id === id);
+		// Safety cards: play instantly on tap — they can never be discarded usefully
+		// and canPlaySafety() is always true, so there's no ambiguity.
+		if (card?.kind === 'safety' && game.playableIds.has(id)) {
+			const move = game.legal.find((m) => m.type === 'play' && m.cardId === id);
+			if (move) { game.play(move); return; }
+		}
 		selectedId = selectedId === id ? null : id;
 	}
 
@@ -72,11 +102,11 @@
 		if (game.isOver) return null;
 		if (game.isCoupFourre) {
 			return active === viewer
-				? { text: 'Coup Fourré chance!', tone: 'text-violet-600' }
-				: { text: `${s.players[active].name} is countering…`, tone: 'text-asphalt/60' };
+				? { text: 'Coup Fourré chance!', tone: 'text-violet-300' }
+				: { text: `${s.players[active].name} is countering…`, tone: 'text-white/50' };
 		}
-		if (interactive) return { text: 'Your turn — make a move', tone: 'text-road-600' };
-		return { text: `${s.players[active].name} is driving`, tone: 'text-asphalt/60' };
+		if (interactive) return { text: 'Your turn — make a move', tone: 'text-amber-300' };
+		return { text: `${s.players[active].name} is driving`, tone: 'text-white/50' };
 	});
 
 	const discardTop = $derived(s.discardPile.at(-1) ?? null);
@@ -89,16 +119,26 @@
 	<!-- Centre: draw / discard + status ticker -->
 	<div class="flex items-center justify-between gap-3 px-1">
 		<div class="flex items-center gap-2">
-			<!-- draw pile -->
+			<!-- draw pile (face-down card stack) -->
 			<div class="relative h-[4.5rem] w-12 shrink-0">
-				<div class="absolute inset-0 rounded-2xl bg-road-900 shadow-[2px_2px_0_rgba(0,0,0,0.2)]"></div>
-				<div
-					class="absolute inset-0 grid -translate-x-0.5 -translate-y-0.5 place-items-center rounded-2xl bg-road-700 ring-2 ring-white/50"
-				>
-					<span class="text-lg opacity-80">🛣️</span>
+				<!-- stack shadow cards -->
+				<div class="absolute top-1 left-1 h-full w-full rounded-lg bg-blue-900 opacity-60"></div>
+				<div class="absolute top-0.5 left-0.5 h-full w-full rounded-lg bg-blue-800 opacity-70"></div>
+				<!-- top card -->
+				<div class="absolute inset-0 overflow-hidden rounded-lg border-2 border-gray-300 bg-blue-700">
+					<div class="h-full w-full p-[3px]">
+						<div class="h-full w-full rounded-md border border-blue-500/40 grid place-items-center"
+							style="background: repeating-linear-gradient(0deg,#1e40af 0px,#1e40af 4px,#1d4ed8 4px,#1d4ed8 8px)">
+							<div class="grid grid-cols-2 gap-0.5 opacity-30">
+								{#each {length: 6} as _}
+									<div class="w-2.5 h-3.5 rounded-full border border-red-400"></div>
+								{/each}
+							</div>
+						</div>
+					</div>
 				</div>
 				<span
-					class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 rounded-full bg-asphalt px-1.5 text-[0.6rem] font-bold text-white"
+					class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 rounded-full bg-asphalt px-1.5 text-[0.6rem] font-bold text-white shadow"
 				>
 					{s.drawPile.length}
 				</span>
@@ -108,7 +148,7 @@
 				<Card card={discardTop} size="sm" />
 			{:else}
 				<div
-					class="grid h-[4.5rem] w-12 shrink-0 place-items-center rounded-2xl border-2 border-dashed border-asphalt/15 text-[0.55rem] font-bold uppercase text-asphalt/30"
+					class="grid h-[4.5rem] w-12 shrink-0 place-items-center rounded-lg border-2 border-dashed border-white/20 text-[0.55rem] font-bold uppercase text-white/30"
 				>
 					disc
 				</div>
@@ -122,7 +162,7 @@
 				</p>
 			{/if}
 			{#if s.log.at(-1)}
-				<p class="truncate text-[0.7rem] text-asphalt/50">{s.log.at(-1)?.text}</p>
+				<p class="truncate text-[0.7rem] text-white/40">{s.log.at(-1)?.text}</p>
 			{/if}
 		</div>
 	</div>
@@ -130,37 +170,37 @@
 	<!-- Self -->
 	<Tableau player={me} isActive={active === viewer} isViewer={true} />
 
-	<!-- Action bar -->
-	<div class="min-h-[2.75rem]">
-		{#if interactive && selectedCard && whyNotPlayable}
-			<p class="mb-1 text-center text-xs font-semibold text-amber-600">{whyNotPlayable}</p>
-		{/if}
+	<!-- Action bar — fixed height so the hand never shifts when the why-message appears -->
+	<div class="flex h-16 flex-col items-center justify-center gap-1">
+		<p class="text-center text-xs font-semibold text-amber-300 {interactive && selectedCard && whyNotPlayable ? '' : 'invisible'}">
+			{whyNotPlayable ?? ' '}
+		</p>
 		{#if interactive && selectedCard}
 			<div class="flex items-center justify-center gap-2">
 				<button
 					onclick={playSelected}
 					disabled={!canPlaySelected}
-					class="rounded-xl bg-emerald-500 px-4 py-2 font-display text-sm font-bold text-white shadow-[0_3px_0_#15803d]
-						transition active:translate-y-0.5 active:shadow-none disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+					class="rounded-xl border-2 border-mb-green bg-mb-green px-4 py-2 font-display text-sm font-black text-white shadow-[0_3px_0_#145a14]
+						transition active:translate-y-0.5 active:shadow-none disabled:cursor-not-allowed disabled:border-gray-400 disabled:bg-gray-400 disabled:shadow-none"
 				>
 					{selectedCard.kind === 'hazard' ? `Attack ${opp.name}` : 'Play'}
 				</button>
 				<button
 					onclick={discardSelected}
-					class="rounded-xl bg-white px-4 py-2 font-display text-sm font-bold text-asphalt shadow-[0_3px_0_rgba(0,0,0,0.12)]
-						transition active:translate-y-0.5 active:shadow-none"
+					class="rounded-xl border-2 border-white/30 bg-white/15 px-4 py-2 font-display text-sm font-bold text-white backdrop-blur-sm
+						transition active:translate-y-0.5 hover:bg-white/25"
 				>
 					Discard
 				</button>
 				<button
 					onclick={() => (selectedId = null)}
-					class="rounded-xl px-3 py-2 text-sm font-bold text-asphalt/50"
+					class="rounded-xl px-3 py-2 text-sm font-bold text-white/40 hover:text-white/70"
 				>
 					✕
 				</button>
 			</div>
 		{:else if interactive}
-			<p class="text-center text-[0.7rem] font-semibold uppercase tracking-widest text-asphalt/35">
+			<p class="text-center text-[0.7rem] font-semibold uppercase tracking-widest text-white/30">
 				tap a card to play or discard
 			</p>
 		{/if}

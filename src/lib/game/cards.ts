@@ -109,26 +109,26 @@ export interface CardMeta {
 }
 
 export const HAZARD_META: Record<Hazard, CardMeta> = {
-	accident: { label: 'Accident', short: 'Crash', emoji: '💥', hue: 'rose' },
-	outOfGas: { label: 'Out of Gas', short: 'Empty', emoji: '⛽', hue: 'rose' },
-	flatTire: { label: 'Flat Tire', short: 'Flat', emoji: '🛞', hue: 'rose' },
-	speedLimit: { label: 'Speed Limit', short: '50', emoji: '🚸', hue: 'amber' },
-	stop: { label: 'Stop', short: 'Stop', emoji: '🛑', hue: 'rose' }
+	accident: { label: 'Accident', short: 'ACCIDENT', emoji: '💥', hue: 'rose' },
+	outOfGas: { label: 'Out of Gas', short: 'OUT OF GAS', emoji: '🪫', hue: 'rose' },
+	flatTire: { label: 'Flat Tire', short: 'FLAT TIRE', emoji: '🛞', hue: 'rose' },
+	speedLimit: { label: 'Speed Limit', short: 'SPEED LIMIT', emoji: '🔴', hue: 'amber' },
+	stop: { label: 'Stop', short: 'STOP', emoji: '🛑', hue: 'rose' }
 };
 
 export const REMEDY_META: Record<Remedy, CardMeta> = {
-	repairs: { label: 'Repairs', short: 'Fix', emoji: '🔧', hue: 'emerald' },
-	gasoline: { label: 'Gasoline', short: 'Fuel', emoji: '⛽', hue: 'emerald' },
-	spareTire: { label: 'Spare Tire', short: 'Tire', emoji: '🛞', hue: 'emerald' },
-	endOfLimit: { label: 'End of Limit', short: 'No Limit', emoji: '🏁', hue: 'emerald' },
-	roll: { label: 'Roll', short: 'Go', emoji: '🟢', hue: 'emerald' }
+	repairs: { label: 'Repairs', short: 'REPAIRS', emoji: '🔧', hue: 'emerald' },
+	gasoline: { label: 'Gasoline', short: 'GASOLINE', emoji: '⛽', hue: 'emerald' },
+	spareTire: { label: 'Spare Tire', short: 'SPARE TIRE', emoji: '🛞', hue: 'emerald' },
+	endOfLimit: { label: 'End of Limit', short: 'END OF LIMIT', emoji: '🏁', hue: 'sky' },
+	roll: { label: 'Roll', short: 'ROLL', emoji: '🟢', hue: 'emerald' }
 };
 
 export const SAFETY_META: Record<Safety, CardMeta> = {
-	drivingAce: { label: 'Driving Ace', short: 'Ace', emoji: '🏆', hue: 'violet' },
-	extraTank: { label: 'Extra Tank', short: 'Tank', emoji: '🛢️', hue: 'violet' },
-	punctureProof: { label: 'Puncture-Proof', short: 'Proof', emoji: '🛡️', hue: 'violet' },
-	rightOfWay: { label: 'Right of Way', short: 'Priority', emoji: '🚦', hue: 'violet' }
+	drivingAce: { label: 'Driving Ace', short: 'DRIVING ACE', emoji: '🏎️', hue: 'violet' },
+	extraTank: { label: 'Extra Tank', short: 'EXTRA TANK', emoji: '🚛', hue: 'violet' },
+	punctureProof: { label: 'Puncture-Proof', short: 'PUNCTURE-PROOF', emoji: '🛞', hue: 'violet' },
+	rightOfWay: { label: 'Right of Way', short: 'RIGHT OF WAY', emoji: '🚦', hue: 'violet' }
 };
 
 export function cardMeta(card: Card): CardMeta {

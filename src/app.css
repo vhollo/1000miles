@@ -1,28 +1,42 @@
 @import 'tailwindcss';
 
-/* ---- Playful theme tokens (Tailwind v4 `@theme`) ----------------------- */
+/* ---- Theme tokens -------------------------------------------------------- */
 @theme {
-	--font-display: 'Baloo 2', system-ui, sans-serif;
+	--font-display: 'Barlow Condensed', 'Baloo 2', system-ui, sans-serif;
 	--font-body: 'Nunito', system-ui, -apple-system, sans-serif;
 
-	/* Brand "road" blue */
-	--color-road-50: #eef5ff;
+	/* Original Mille Bornes blue */
+	--color-road-50:  #eef5ff;
 	--color-road-100: #d9e8ff;
 	--color-road-200: #bcd6ff;
 	--color-road-300: #8ebaff;
 	--color-road-400: #5b93ff;
-	--color-road-500: #356bf5;
-	--color-road-600: #2050e0;
-	--color-road-700: #1b3fb8;
-	--color-road-800: #1c3893;
-	--color-road-900: #1d3474;
+	--color-road-500: #1a4ba0;
+	--color-road-600: #153d8a;
+	--color-road-700: #102f6e;
+	--color-road-800: #0c2254;
+	--color-road-900: #081640;
 
-	/* Warm "paper" surface */
-	--color-cream: #fff7ec;
-	--color-asphalt: #232542;
+	/* Mille Bornes classic red */
+	--color-mb-red: #cc1414;
+	--color-mb-red-dark: #9b0f0f;
+
+	/* Mille Bornes classic green */
+	--color-mb-green: #1a7a1a;
+	--color-mb-green-dark: #145a14;
+
+	/* Mille Bornes classic blue (same as road) */
+	--color-mb-blue: #1a4ba0;
+
+	/* Table surface */
+	--color-felt: #1a3d1a;
+	--color-felt-light: #24521e;
+
+	--color-cream: #f8f4ef;
+	--color-asphalt: #1e2030;
 }
 
-/* ---- Base ------------------------------------------------------------- */
+/* ---- Base ---------------------------------------------------------------- */
 :root {
 	color-scheme: light;
 }
@@ -35,9 +49,8 @@ body {
 body {
 	font-family: var(--font-body);
 	color: var(--color-asphalt);
-	background:
-		radial-gradient(1200px 600px at 50% -10%, #ffe9b8 0%, transparent 60%),
-		linear-gradient(160deg, #fff7ec 0%, #ffe7d1 45%, #ffd9e6 100%);
+	/* Dark green felt — card-table aesthetic */
+	background: linear-gradient(160deg, #1e4022 0%, #162e18 60%, #1a3820 100%);
 	background-attachment: fixed;
 	-webkit-tap-highlight-color: transparent;
 	overscroll-behavior: none;

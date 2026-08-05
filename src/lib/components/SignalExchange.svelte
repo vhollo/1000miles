@@ -31,30 +31,30 @@
 	}
 </script>
 
-<div class="rounded-2xl border-2 border-white bg-white/70 p-3">
-	<p class="mb-1 font-display text-sm font-extrabold text-asphalt">{label}</p>
+<div class="rounded-xl border-2 border-white/20 bg-white/10 p-3 backdrop-blur-sm">
+	<p class="mb-1 font-display text-sm font-black text-white">{label}</p>
 	<div
-		class="max-h-16 overflow-y-auto rounded-xl bg-asphalt/5 p-2 font-mono text-[0.6rem] leading-snug break-all text-asphalt/60 select-all"
+		class="max-h-16 overflow-y-auto rounded-xl bg-white/90 p-2 font-mono text-[0.6rem] leading-snug break-all text-asphalt select-all"
 	>
 		{code}
 	</div>
 	<div class="mt-2 flex gap-2">
 		<button
 			onclick={() => copy(code, 'code')}
-			class="flex-1 rounded-xl bg-asphalt px-3 py-2 text-sm font-bold text-cream transition active:translate-y-0.5"
+			class="flex-1 rounded-xl border border-white/30 bg-white/20 px-3 py-2 text-sm font-bold text-white backdrop-blur-sm transition active:translate-y-0.5 hover:bg-white/30"
 		>
 			{copied === 'code' ? '✓ Copied' : 'Copy code'}
 		</button>
 		{#if link}
 			<button
 				onclick={share}
-				class="flex-1 rounded-xl bg-road-500 px-3 py-2 text-sm font-bold text-white transition active:translate-y-0.5"
+				class="flex-1 rounded-xl border-2 border-blue-400 bg-mb-blue px-3 py-2 text-sm font-bold text-white shadow-[0_3px_0_#102f6e] transition active:translate-y-0.5 active:shadow-none"
 			>
 				{copied === 'link' ? '✓ Copied' : '📤 Share link'}
 			</button>
 		{/if}
 	</div>
 	{#if hint}
-		<p class="mt-2 text-xs text-asphalt/50">{hint}</p>
+		<p class="mt-2 text-xs text-white/50">{hint}</p>
 	{/if}
 </div>

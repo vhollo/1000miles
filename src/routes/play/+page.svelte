@@ -75,26 +75,26 @@
 		<header class="flex items-center justify-between px-4 py-2">
 			<button
 				onclick={quit}
-				class="rounded-full bg-white/70 px-3 py-1.5 text-xs font-bold text-asphalt/70 ring-1 ring-asphalt/10 transition hover:bg-white"
+				class="rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold text-white/80 ring-1 ring-white/20 backdrop-blur-sm transition hover:bg-white/25"
 			>
 				← Quit
 			</button>
 			<div class="text-center leading-tight">
 				<p
-					class="flex items-center justify-center gap-1.5 font-display text-sm font-extrabold text-asphalt/50"
+					class="flex items-center justify-center gap-1.5 font-display text-sm font-extrabold text-white/70"
 				>
 					{#if game.isOnline}
 						<span
-							class="h-2 w-2 rounded-full {game.connected ? 'bg-emerald-500' : 'bg-rose-500'}"
+							class="h-2 w-2 rounded-full {game.connected ? 'bg-emerald-400' : 'bg-rose-400'}"
 						></span>
 					{/if}
 					{label}{#if game.state}
 						· Hand {game.state.hand}{/if}
 				</p>
 				{#if game.state?.matchScores}
-					<p class="font-display text-xs font-bold tabular-nums text-asphalt/40">
+					<p class="font-display text-xs font-bold tabular-nums text-white/40">
 						{game.state.matchScores[0]} – {game.state.matchScores[1]}
-						<span class="font-semibold text-asphalt/30">to {game.state.matchTarget}</span>
+						<span class="font-semibold text-white/30">to {game.state.matchTarget}</span>
 					</p>
 				{/if}
 			</div>
@@ -115,21 +115,21 @@
 
 			{#if covered}
 				<div
-					class="absolute inset-0 z-40 grid place-items-center bg-cream/95 backdrop-blur-md"
+					class="absolute inset-0 z-40 grid place-items-center bg-felt/95 backdrop-blur-md"
 					transition:fly={{ y: 20, duration: 200 }}
 				>
 					<div class="text-center">
 						<div class="mb-3 text-5xl">🤝</div>
-						<p class="font-display text-sm font-bold uppercase tracking-widest text-asphalt/40">
+						<p class="font-display text-sm font-bold uppercase tracking-widest text-white/50">
 							Pass the device to
 						</p>
-						<h2 class="font-display text-3xl font-extrabold text-asphalt">
+						<h2 class="font-display text-3xl font-extrabold text-white">
 							{game.state?.players[game.active].name}
 						</h2>
 						<button
 							onclick={() => (covered = false)}
-							class="mt-6 rounded-2xl bg-road-500 px-8 py-4 font-display text-lg font-extrabold text-white
-								shadow-[0_5px_0_var(--color-road-700)] transition active:translate-y-1 active:shadow-none"
+							class="mt-6 rounded-xl border-2 border-blue-400 bg-mb-blue px-8 py-4 font-display text-lg font-black text-white
+								shadow-[0_5px_0_#102f6e] transition active:translate-y-1 active:shadow-none"
 						>
 							I'm ready
 						</button>
@@ -138,15 +138,15 @@
 			{/if}
 
 			{#if game.isOnline && !game.connected && game.state}
-				<div class="absolute inset-0 z-40 grid place-items-center bg-cream/95 backdrop-blur-md">
+				<div class="absolute inset-0 z-40 grid place-items-center bg-felt/95 backdrop-blur-md">
 					<div class="text-center">
 						<div class="mb-3 text-5xl">🔌</div>
-						<h2 class="font-display text-2xl font-extrabold text-asphalt">Opponent disconnected</h2>
-						<p class="mt-1 text-sm text-asphalt/60">The connection to the other player was lost.</p>
+						<h2 class="font-display text-2xl font-extrabold text-white">Opponent disconnected</h2>
+						<p class="mt-1 text-sm text-white/60">The connection to the other player was lost.</p>
 						<button
 							onclick={quit}
-							class="mt-6 rounded-2xl bg-road-500 px-8 py-4 font-display text-lg font-extrabold text-white
-								shadow-[0_5px_0_var(--color-road-700)] transition active:translate-y-1 active:shadow-none"
+							class="mt-6 rounded-xl border-2 border-blue-400 bg-mb-blue px-8 py-4 font-display text-lg font-black text-white
+								shadow-[0_5px_0_#102f6e] transition active:translate-y-1 active:shadow-none"
 						>
 							Back to menu
 						</button>

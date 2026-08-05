@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { SAFETY_META, type Safety } from '$lib/game/cards';
+	import { HAZARD_META, SAFETY_META, type Safety } from '$lib/game/cards';
 	import { isRolling, isSpeedLimited, topBattle, topSpeed, totalMiles } from '$lib/game/rules';
 	import type { PlayerState } from '$lib/game/state';
 	import Card from './Card.svelte';
@@ -19,18 +19,25 @@
 
 	const ALL_SAFETIES: Safety[] = ['drivingAce', 'extraTank', 'punctureProof', 'rightOfWay'];
 
+	const blocked = $derived(bt?.kind === 'hazard' ? bt : null);
+	const needsRoll = $derived(!rolling && !blocked && bt?.kind === 'remedy' && bt.remedy !== 'roll');
+
 	const status = $derived(
-		bt?.kind === 'hazard'
-			? { text: 'Blocked', tone: 'bg-rose-100 text-rose-700 ring-rose-200' }
+		blocked
+			? { text: `${HAZARD_META[blocked.hazard].emoji} ${HAZARD_META[blocked.hazard].label}`, tone: 'bg-rose-100 text-rose-700 ring-rose-200' }
 			: rolling
 				? { text: 'Rolling', tone: 'bg-emerald-100 text-emerald-700 ring-emerald-200' }
-				: { text: 'Stopped', tone: 'bg-slate-100 text-slate-600 ring-slate-200' }
+				: needsRoll
+					? { text: '▶ Play Roll', tone: 'bg-amber-100 text-amber-700 ring-amber-200' }
+					: { text: 'Stopped', tone: 'bg-slate-100 text-slate-600 ring-slate-200' }
 	);
 </script>
 
 <section
-	class="rounded-3xl border-2 bg-white/70 p-3 backdrop-blur-sm transition-all duration-300
-		{isActive ? 'border-amber-300 shadow-[0_0_0_4px_rgba(252,211,77,0.35)]' : 'border-white/80'}"
+	class="rounded-2xl border-2 bg-white p-3 shadow-[0_4px_16px_rgba(0,0,0,0.4)] transition-all duration-300
+		{blocked ? 'border-rose-400 shadow-[0_0_0_3px_rgba(244,63,94,0.25)]'
+		: isActive ? 'border-amber-400 shadow-[0_0_0_4px_rgba(252,211,77,0.5)]'
+		: 'border-gray-200'}"
 >
 	<header class="mb-2 flex items-center justify-between gap-2">
 		<div class="flex items-center gap-2">
