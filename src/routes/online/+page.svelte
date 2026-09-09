@@ -116,7 +116,7 @@
 	<title>Play online — Mille Bornes</title>
 </svelte:head>
 
-<main class="mx-auto flex min-h-[100dvh] max-w-md flex-col px-5 py-6">
+<main class="safe-top safe-bottom mx-auto flex min-h-[100dvh] max-w-md flex-col px-5 pb-6">
 	<button onclick={cancel} class="self-start text-sm font-bold text-white/70">← Back</button>
 	<h1 class="mt-3 font-display text-3xl font-black text-white">Play online</h1>
 

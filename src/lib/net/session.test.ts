@@ -22,7 +22,8 @@ function player(id: 0 | 1, hand: Card[] = []): PlayerState {
 		speed: [],
 		safeties: [],
 		coupsFourres: 0,
-		twoHundredsPlayed: 0
+		twoHundredsPlayed: 0,
+		skipsDraw: false
 	};
 }
 
@@ -37,6 +38,7 @@ function guestsTurn(): GameState {
 		discardPile: [],
 		phase: 'play',
 		pending: null,
+		lastDiscard: null,
 		winner: null,
 		deckExhaustedAt: null,
 		turn: 1,

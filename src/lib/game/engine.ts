@@ -42,7 +42,8 @@ function makePlayer(id: PlayerIndex, name: string, isAI: boolean): PlayerState {
 		speed: [],
 		safeties: [],
 		coupsFourres: 0,
-		twoHundredsPlayed: 0
+		twoHundredsPlayed: 0,
+		skipsDraw: false
 	};
 }
 
@@ -80,6 +81,7 @@ function dealHand(o: DealOptions): GameState {
 		discardPile: [],
 		phase: 'play',
 		pending: null,
+		lastDiscard: null,
 		winner: null,
 		deckExhaustedAt: null,
 		turn: 0,
@@ -161,6 +163,7 @@ function clone(s: GameState): GameState {
 		drawPile: s.drawPile.slice(),
 		discardPile: s.discardPile.slice(),
 		pending: s.pending ? { ...s.pending } : null,
+		lastDiscard: s.lastDiscard ? { ...s.lastDiscard } : null,
 		log: s.log.slice()
 	};
 }
@@ -175,6 +178,7 @@ export function applyMove(state: GameState, move: Move): GameState {
 
 	const cur = s.players[s.current];
 	if (move.type === 'discard') doDiscard(s, cur, move.cardId);
+	else if (move.type === 'takeDiscard') doTakeDiscard(s, cur, move.cardId);
 	else if (move.type === 'play') doPlay(s, cur, move);
 	return s;
 }
@@ -183,6 +187,7 @@ function doDiscard(s: GameState, cur: PlayerState, cardId: string): void {
 	const card = removeFromHand(cur, cardId);
 	if (!card) return;
 	s.discardPile.push(card);
+	s.lastDiscard = { by: cur.id, cardId: card.id };
 	log(s, { text: `${cur.name} discards ${cardMeta(card).label}`, player: cur.id, kind: 'discard' });
 	advanceTurn(s);
 }
@@ -190,14 +195,54 @@ function doDiscard(s: GameState, cur: PlayerState, cardId: string): void {
 function doPlay(s: GameState, cur: PlayerState, move: Extract<Move, { type: 'play' }>): void {
 	const card = cur.hand.find((c) => c.id === move.cardId);
 	if (!card) return;
+	playCard(s, cur, card, move.target);
+}
+
+/**
+ * House rule — take: claim the card the opponent just discarded. You keep the
+ * card you drew this turn, so your hand grows by one now and you forfeit next
+ * turn's draw to pay for it. Taking is *not* your move — you still play or
+ * discard afterwards, the card you just took included.
+ */
+function doTakeDiscard(s: GameState, cur: PlayerState, cardId: string): void {
+	const card = takeableDiscard(s);
+	if (!card || card.id !== cardId) return;
+
+	s.discardPile.pop();
+	cur.hand.push(card);
+	cur.skipsDraw = true; // paid at the start of their next turn
+
+	log(s, {
+		text: `${cur.name} takes ${cardMeta(card).label} from the discard pile`,
+		player: cur.id,
+		kind: 'play'
+	});
+	// deliberately no advanceTurn — the player still has their move
+}
+
+/**
+ * Play `card` from `cur`'s hand. Illegal plays are rejected *before* the card
+ * is removed, so a rejected move leaves the state untouched.
+ */
+function playCard(
+	s: GameState,
+	cur: PlayerState,
+	card: Card,
+	target: PlayerIndex | undefined
+): void {
+	const take = () => removeFromHand(cur, card.id);
 
 	switch (card.kind) {
 		case 'distance': {
 			if (!canPlayDistance(cur, card.value)) return;
-			removeFromHand(cur, card.id);
+			take();
 			cur.distance.push(card);
 			if (card.value === 200) cur.twoHundredsPlayed++;
-			log(s, { text: `${cur.name} drives ${card.value} miles`, player: cur.id, kind: 'play' });
+			log(s, {
+				text: `${cur.name} drives ${card.value} miles`,
+				player: cur.id,
+				kind: 'play'
+			});
 			if (totalMiles(cur) === GOAL) {
 				win(s, cur.id);
 				return;
@@ -207,15 +252,19 @@ function doPlay(s: GameState, cur: PlayerState, move: Extract<Move, { type: 'pla
 		}
 		case 'remedy': {
 			if (!canPlayRemedy(cur, card.remedy)) return;
-			removeFromHand(cur, card.id);
+			take();
 			if (card.remedy === 'endOfLimit') cur.speed.push(card);
 			else cur.battle.push(card);
-			log(s, { text: `${cur.name} plays ${cardMeta(card).label}`, player: cur.id, kind: 'remedy' });
+			log(s, {
+				text: `${cur.name} plays ${cardMeta(card).label}`,
+				player: cur.id,
+				kind: 'remedy'
+			});
 			advanceTurn(s);
 			return;
 		}
 		case 'safety': {
-			removeFromHand(cur, card.id);
+			take();
 			revealSafety(s, cur, card.safety);
 			log(s, {
 				text: `${cur.name} reveals ${cardMeta(card).label}`,
@@ -226,28 +275,28 @@ function doPlay(s: GameState, cur: PlayerState, move: Extract<Move, { type: 'pla
 			return;
 		}
 		case 'hazard': {
-			const targetIdx = move.target ?? other(cur.id);
-			const target = s.players[targetIdx];
-			if (!canAttackWith(target, card.hazard)) return;
-			removeFromHand(cur, card.id);
+			const targetIdx = target ?? other(cur.id);
+			const victim = s.players[targetIdx];
+			if (!canAttackWith(victim, card.hazard)) return;
+			take();
 
 			// Open a Coup Fourré window if the target holds the matching safety.
 			const matching = SAFETY_FOR[card.hazard];
-			const held = target.hand.find((c) => c.kind === 'safety' && c.safety === matching);
+			const held = victim.hand.find((c) => c.kind === 'safety' && c.safety === matching);
 			if (held) {
 				s.pending = { hazard: card.hazard, card, by: cur.id, target: targetIdx };
 				s.phase = 'coupFourre';
 				log(s, {
-					text: `${cur.name} attacks ${target.name} with ${cardMeta(card).label}…`,
+					text: `${cur.name} attacks ${victim.name} with ${cardMeta(card).label}…`,
 					player: cur.id,
 					kind: 'attack'
 				});
 				return; // wait for the target's decision
 			}
 
-			landHazard(target, card);
+			landHazard(victim, card);
 			log(s, {
-				text: `${cur.name} hits ${target.name} with ${cardMeta(card).label}`,
+				text: `${cur.name} hits ${victim.name} with ${cardMeta(card).label}`,
 				player: cur.id,
 				kind: 'attack'
 			});
@@ -343,19 +392,38 @@ function endHand(s: GameState): void {
 	}
 }
 
-function drawOne(s: GameState, p: PlayerState): boolean {
+/** Draw a card for `p`, returning it — or `null` when the deck is spent. */
+function drawOne(s: GameState, p: PlayerState): Card | null {
 	if (s.drawPile.length > 0) {
-		p.hand.push(s.drawPile.pop()!);
-		return true;
+		const card = s.drawPile.pop()!;
+		p.hand.push(card);
+		return card;
 	}
 	if (s.deckExhaustedAt === null) s.deckExhaustedAt = s.turn;
-	return false;
+	return null;
+}
+
+/**
+ * The draw that opens a turn. A player who took the opponent's discard owes one
+ * (house rule), and pays it here — once.
+ */
+function drawForTurn(s: GameState, p: PlayerState): void {
+	if (p.skipsDraw) {
+		p.skipsDraw = false;
+		log(s, {
+			text: `${p.name} skips the draw — they took the discard last turn`,
+			player: p.id,
+			kind: 'info'
+		});
+		return;
+	}
+	drawOne(s, p);
 }
 
 /** Begin the current player's turn: draw, or skip/finish if nobody can move. */
 function startTurn(s: GameState): void {
 	const p = s.players[s.current];
-	drawOne(s, p);
+	drawForTurn(s, p);
 	if (s.drawPile.length === 0 && p.hand.length === 0) {
 		const opp = s.players[other(s.current)];
 		if (opp.hand.length === 0) {
@@ -381,7 +449,7 @@ function advanceTurn(s: GameState): void {
 function extraTurn(s: GameState): void {
 	if (s.phase === 'gameOver') return;
 	const p = s.players[s.current];
-	drawOne(s, p);
+	drawForTurn(s, p);
 	if (p.hand.length === 0 && s.drawPile.length === 0) {
 		advanceTurn(s);
 		return;
@@ -399,6 +467,38 @@ function log(s: GameState, entry: LogEntry): void {
 /** Whose input is expected right now (the defender during a Coup Fourré). */
 export function activePlayer(s: GameState): PlayerIndex {
 	return s.phase === 'coupFourre' && s.pending ? s.pending.target : s.current;
+}
+
+/**
+ * House rule — take. The card the opponent just discarded, when the player to
+ * move may claim it against next turn's draw; otherwise `null`.
+ *
+ * Deliberately narrow: only the *top* of the pile, only while it is still the
+ * card the *opponent* discarded (any later push — a nullified Coup Fourré
+ * hazard, a hazard cleared by a safety — closes the window), only cards that
+ * help you (their discarded hazards stay in the bin), and only while the deck
+ * still holds a draw to forfeit — once it is spent the price is free, so the
+ * rule switches itself off.
+ */
+export function takeableDiscard(s: GameState): Card | null {
+	if (s.phase !== 'play') return null;
+	if (s.drawPile.length === 0) return null;
+	const last = s.lastDiscard;
+	if (!last || last.by === s.current) return null;
+	const top = s.discardPile[s.discardPile.length - 1];
+	if (!top || top.id !== last.cardId) return null;
+
+	const p = s.players[s.current];
+	switch (top.kind) {
+		case 'distance':
+			return canPlayDistance(p, top.value) ? top : null;
+		case 'remedy':
+			return canPlayRemedy(p, top.remedy) ? top : null;
+		case 'safety':
+			return top;
+		case 'hazard':
+			return null;
+	}
 }
 
 export function legalMoves(s: GameState): Move[] {
@@ -429,6 +529,10 @@ export function legalMoves(s: GameState): Move[] {
 			moves.push({ type: 'play', cardId: c.id, target: opp.id });
 		}
 	}
+	// House rule: claim the card the opponent threw away, against next turn's draw.
+	const take = takeableDiscard(s);
+	if (take) moves.push({ type: 'takeDiscard', cardId: take.id });
+
 	// You may always discard instead of playing.
 	for (const c of p.hand) moves.push({ type: 'discard', cardId: c.id });
 	return moves;

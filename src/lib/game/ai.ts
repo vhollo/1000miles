@@ -1,6 +1,6 @@
 import type { Card, Hazard } from './cards';
-import { legalMoves } from './engine';
-import { GOAL, isRolling, isSpeedLimited, totalMiles } from './rules';
+import { legalMoves, takeableDiscard } from './engine';
+import { GOAL, canPlayDistance, canPlayRemedy, isRolling, isSpeedLimited, totalMiles } from './rules';
 import { other, type GameState, type Move, type PlayerState } from './state';
 
 type PlayMove = Extract<Move, { type: 'play' }>;
@@ -17,6 +17,12 @@ export function chooseMove(s: GameState): Move {
 	const opp = s.players[other(s.current)];
 	const moves = legalMoves(s);
 	const card = (id: string): Card => me.hand.find((c) => c.id === id)!;
+
+	// House rule: take the opponent's discard when it beats the blind draw it
+	// costs us next turn. Taking is free of the turn itself, so the AI claims the
+	// card and then picks a real move on the next pass.
+	const claim = moves.find((m) => m.type === 'takeDiscard');
+	if (claim && holdValue(me, takeableDiscard(s)!) >= DRAW_WORTH) return claim;
 
 	const plays = moves.filter((m): m is PlayMove => m.type === 'play');
 	const distancePlays = plays.filter((m) => card(m.cardId).kind === 'distance');
@@ -79,6 +85,33 @@ export function chooseMove(s: GameState): Move {
 
 	// 9. Discard the least useful card.
 	return discardChoice(me);
+}
+
+/**
+ * What an unseen card off the deck is worth on average, in `holdValue` terms —
+ * the bar the opponent's discard has to clear to be worth taking.
+ */
+const DRAW_WORTH = 18;
+
+/**
+ * Roughly what holding `c` is worth to `me` *right now* — used to decide the
+ * house-rule take. Situational on purpose: the Gasoline we're waiting on beats
+ * a mileage card we can't legally play yet.
+ */
+function holdValue(me: PlayerState, c: Card): number {
+	switch (c.kind) {
+		case 'safety':
+			return 100;
+		case 'remedy':
+			if (c.remedy === 'endOfLimit') return isSpeedLimited(me) ? 40 : 5;
+			if (c.remedy === 'roll') return isRolling(me) ? 8 : 45;
+			return canPlayRemedy(me, c.remedy) ? 50 : 6; // the fix we're actually stuck on
+		case 'distance':
+			if (totalMiles(me) + c.value === GOAL) return 200; // wins the hand
+			return canPlayDistance(me, c.value) ? 10 + c.value / 10 : c.value / 20;
+		case 'hazard':
+			return 12;
+	}
 }
 
 function safetyUnblocks(me: PlayerState, c: Card): boolean {

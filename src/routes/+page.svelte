@@ -24,7 +24,7 @@
 	<title>Mille Bornes — 1000 Miles</title>
 </svelte:head>
 
-<main class="relative mx-auto flex min-h-[100dvh] max-w-md flex-col items-center justify-center px-6 py-10">
+<main class="safe-top safe-bottom relative mx-auto flex min-h-[100dvh] max-w-md flex-col items-center justify-center px-6 py-10">
 	<!-- Floating decorations -->
 	<div class="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
 		<span class="absolute left-6 top-16 text-3xl opacity-30 [animation:float_6s_ease-in-out_infinite]">🚗</span>

@@ -5,9 +5,11 @@ import {
 	createGame,
 	legalMoves,
 	nextHand as dealNextHand,
-	playableCardIds
+	playableCardIds,
+	takeableDiscard
 } from '$lib/game/engine';
 import { chooseMove } from '$lib/game/ai';
+import type { Card } from '$lib/game/cards';
 import type { GameState, Move, PlayerIndex } from '$lib/game/state';
 import { createGuest, createHost } from '$lib/net/peer';
 import { extractCode } from '$lib/net/codec';
@@ -65,6 +67,14 @@ export class GameStore {
 
 	get playableIds(): Set<string> {
 		return this.state ? playableCardIds(this.state) : new Set();
+	}
+
+	/**
+	 * House rule: the card the opponent just discarded, when the player to move
+	 * may claim it. `null` whenever the rule doesn't apply right now.
+	 */
+	get takeable(): Card | null {
+		return this.state ? takeableDiscard(this.state) : null;
 	}
 
 	get isCoupFourre(): boolean {
@@ -390,6 +400,8 @@ function migrateState(s: GameState): GameState {
 	if (!Array.isArray(s.matchScores)) s.matchScores = [0, 0];
 	if (typeof s.hand !== 'number') s.hand = 1;
 	if (s.matchWinner === undefined) s.matchWinner = null;
+	if (s.lastDiscard === undefined) s.lastDiscard = null;
+	for (const p of s.players) if (p.skipsDraw === undefined) p.skipsDraw = false;
 	return s;
 }
 

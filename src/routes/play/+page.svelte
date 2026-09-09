@@ -72,7 +72,7 @@
 
 {#if ready}
 	<div class="flex min-h-[100dvh] flex-col">
-		<header class="flex items-center justify-between px-4 py-2">
+		<header class="safe-top flex items-center justify-between px-4 pb-2">
 			<button
 				onclick={quit}
 				class="rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold text-white/80 ring-1 ring-white/20 backdrop-blur-sm transition hover:bg-white/25"

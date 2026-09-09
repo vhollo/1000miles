@@ -11,7 +11,7 @@
 	<title>How to play — Mille Bornes</title>
 </svelte:head>
 
-<main class="mx-auto max-w-md px-5 py-6">
+<main class="safe-top safe-bottom mx-auto max-w-md px-5 pb-6">
 	<a href="{base}/" class="text-sm font-bold text-road-600">← Back</a>
 	<h1 class="mt-3 font-display text-3xl font-extrabold text-asphalt">How to play</h1>
 
@@ -27,7 +27,25 @@
 		<h2 class="font-display text-lg font-extrabold text-asphalt">🔁 Your turn</h2>
 		<p class="mt-1 text-sm text-asphalt/75">
 			Draw a card, then play one or discard one. Tap a card to play it or discard it. You need a
-			<strong>Roll (🟢)</strong> before your first mile, and again after any blocking hazard.
+			<strong>Roll (🟢)</strong> before your first mile, and again after any blocking hazard. A
+			<strong class="text-rose-600">NO DRAW</strong> flag on the deck means you owe a draw — see
+			the house rule below.
+		</p>
+	</section>
+
+	<section class="mt-4 rounded-2xl border-2 border-amber-200 bg-amber-50 p-4">
+		<h2 class="font-display text-lg font-extrabold text-amber-600">🗑️ House rule — Take the discard</h2>
+		<p class="mt-1 text-sm text-asphalt/75">
+			If your opponent discards a card <em>you</em> can use, tap the discard pile and confirm to
+			take it. You keep everything you drew, so your hand grows by one — and you pay for it by
+			<strong>starting your next turn without a draw</strong>. Taking
+			<strong>doesn't cost your turn</strong>: you still play or discard afterwards, the card you
+			just took included.
+		</p>
+		<p class="mt-2 text-xs text-asphalt/55">
+			Only the card they just threw away, only while it's still on top, only if it's legal for you
+			right now — mileage, remedies and safeties. Their discarded hazards stay in the bin, and once
+			the deck runs dry there's no draw left to forfeit, so the rule switches off.
 		</p>
 	</section>
 

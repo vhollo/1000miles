@@ -12,11 +12,21 @@ const ASSETS = [...build, ...files, ...prerendered];
 
 sw.addEventListener('install', (event) => {
 	event.waitUntil(
-		caches
-			.open(CACHE)
-			.then((cache) => cache.addAll(ASSETS))
-			.then(() => sw.skipWaiting())
+		(async () => {
+			const cache = await caches.open(CACHE);
+			await cache.addAll(ASSETS);
+			// On the very first install nothing is running yet, so take over at
+			// once. For an update we wait: swapping under a live page would pull
+			// the build assets it is still using out from under it. The client
+			// activates us with SKIP_WAITING when it is ready to reload.
+			if (!sw.registration.active) await sw.skipWaiting();
+		})()
 	);
+});
+
+// Sent by the client (see `$lib/pwa.svelte.ts`) once it is ready to reload.
+sw.addEventListener('message', (event) => {
+	if ((event.data as { type?: string } | null)?.type === 'SKIP_WAITING') sw.skipWaiting();
 });
 
 sw.addEventListener('activate', (event) => {

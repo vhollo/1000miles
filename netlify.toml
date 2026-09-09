@@ -5,3 +5,10 @@
 [build]
   command = "npm run build"
   publish = "build"
+
+# The worker script itself must never come back stale, or an installed app can
+# sit on an old build after a deploy.
+[[headers]]
+  for = "/service-worker.js"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"

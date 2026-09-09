@@ -14,7 +14,10 @@ export default defineConfig({
 			},
 			// Netlify adapter: prerendered SPA pages + the /api/signal server route
 			// deploy as Netlify Functions. Client routing/fallback is handled by the adapter.
-			adapter: adapter()
+			adapter: adapter(),
+			// We register the worker ourselves so we can poll for new builds while
+			// an installed app stays open — see `src/lib/pwa.svelte.ts`.
+			serviceWorker: { register: false }
 		})
 	]
 });

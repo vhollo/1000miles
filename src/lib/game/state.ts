@@ -19,9 +19,20 @@ export interface PlayerState {
 	coupsFourres: number;
 	/** How many 200-mile cards played (max 2 per player). */
 	twoHundredsPlayed: number;
+	/**
+	 * House rule: this player took the opponent's discard and owes a draw for it,
+	 * so their next turn starts without one. Cleared as soon as it is paid.
+	 */
+	skipsDraw: boolean;
 }
 
 export type Phase = 'play' | 'coupFourre' | 'gameOver';
+
+/** Who put the current top card on the discard pile (house rule: taking it). */
+export interface LastDiscard {
+	by: PlayerIndex;
+	cardId: string;
+}
 
 /** A hazard awaiting a Coup Fourré decision from its target. */
 export interface PendingHazard {
@@ -46,6 +57,11 @@ export interface GameState {
 	discardPile: Card[];
 	phase: Phase;
 	pending: PendingHazard | null;
+	/**
+	 * The most recent *discard* (house rule). While this still matches the top of
+	 * `discardPile`, the other player may trade for that card — see `takeableDiscard`.
+	 */
+	lastDiscard: LastDiscard | null;
 	winner: PlayerIndex | null;
 	/** Turn number at which the draw pile first emptied (null = still cards left). */
 	deckExhaustedAt: number | null;
@@ -66,6 +82,8 @@ export interface GameState {
 export type Move =
 	| { type: 'play'; cardId: string; target?: PlayerIndex }
 	| { type: 'discard'; cardId: string }
+	/** House rule: take the opponent's discard, at the cost of next turn's draw. */
+	| { type: 'takeDiscard'; cardId: string }
 	| { type: 'coupFourre'; cardId: string }
 	| { type: 'declineCoupFourre' };
 

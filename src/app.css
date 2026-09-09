@@ -63,6 +63,15 @@ h3,
 	font-family: var(--font-display);
 }
 
+/* iOS notch / status bar: viewport-fit=cover lets content slide under the
+   system UI, so every top-level screen pads itself out of the way. */
+.safe-top {
+	padding-top: max(0.5rem, env(safe-area-inset-top));
+}
+.safe-bottom {
+	padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}
+
 /* Honour users who prefer less motion. */
 @media (prefers-reduced-motion: reduce) {
 	*,

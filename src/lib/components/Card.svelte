@@ -9,6 +9,7 @@
 		dim = false,
 		size = 'md',
 		faceDown = false,
+		label,
 		onclick
 	}: {
 		card: Card;
@@ -17,6 +18,8 @@
 		dim?: boolean;
 		size?: Size;
 		faceDown?: boolean;
+		/** Overrides the default aria-label (e.g. "Take Gasoline from the discard pile"). */
+		label?: string;
 		onclick?: () => void;
 	} = $props();
 
@@ -37,7 +40,7 @@
 	type="button"
 	{onclick}
 	disabled={!onclick}
-	aria-label={meta.label}
+	aria-label={label ?? meta.label}
 	class="card-shell relative shrink-0 select-none overflow-hidden rounded-lg border-2 border-gray-300
 		shadow-[0_4px_0_rgba(0,0,0,0.25)] transition-all duration-150
 		{sz.w} {sz.h}
