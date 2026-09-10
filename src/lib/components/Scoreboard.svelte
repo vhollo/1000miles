@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { GameState } from '$lib/game/state';
 	import { handResult } from '$lib/game/scoring';
+	import { acts } from '$lib/game/text';
 
 	let {
 		state,
@@ -21,9 +22,9 @@
 
 	const headline = $derived(
 		matchOver
-			? `${state.players[r.matchWinner!].name} wins the match! 🏆`
+			? `${acts(state.players[r.matchWinner!].name, 'win')} the match! 🏆`
 			: r.tripWinner !== null
-				? `${state.players[r.tripWinner].name} reaches 1000`
+				? `${acts(state.players[r.tripWinner].name, 'reach')} 1000`
 				: `Hand ${r.hand} complete`
 	);
 	const pct = (v: number) => Math.min(100, (v / r.matchTarget) * 100);

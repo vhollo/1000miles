@@ -424,14 +424,38 @@ describe('discard take (house rule)', () => {
 		expect(round.drawPile.length).toBe(deck - 3); // P1, then us again
 	});
 
-	it('offers no take once the deck is spent — the price would be free', () => {
+	it('still works with the deck spent — and then costs nothing', () => {
 		const s = afterOpponentDiscard(RM('gasoline'), player({ id: 0, battle: [HZ('outOfGas')] }), {
 			drawPile: []
 		});
-		expect(takeableDiscard(s)).toBeNull();
-		expect(applyMove(s, { type: 'takeDiscard', cardId: 'rm-gasoline-0' }).discardPile).toHaveLength(
-			1
+		expect(takeableDiscard(s)?.id).toBe('rm-gasoline-0');
+
+		const next = applyMove(s, { type: 'takeDiscard', cardId: 'rm-gasoline-0' });
+		expect(next.players[0].hand.map((c) => c.id)).toContain('rm-gasoline-0');
+		expect(next.players[0].skipsDraw).toBe(false); // no draw left to forfeit
+		expect(next.current).toBe(0);
+	});
+
+	it('does not skip an empty-handed player who could take the discard', () => {
+		// Deck spent and P1 holds nothing — but P0 is about to throw away the very
+		// Gasoline that gets them moving again. Without the rule P1 would be
+		// skipped and the hand would end.
+		const s = state(
+			player({ id: 0, hand: [RM('gasoline')] }),
+			player({ id: 1, hand: [], battle: [HZ('outOfGas')] }),
+			{ current: 0, drawPile: [] }
 		);
+		const next = applyMove(s, { type: 'discard', cardId: 'rm-gasoline-0' });
+
+		expect(next.phase).toBe('play'); // the hand did not end
+		expect(next.current).toBe(1);
+		expect(takeableDiscard(next)?.id).toBe('rm-gasoline-0');
+		expect(legalMoves(next)).toEqual([{ type: 'takeDiscard', cardId: 'rm-gasoline-0' }]);
+
+		const took = applyMove(next, { type: 'takeDiscard', cardId: 'rm-gasoline-0' });
+		expect(took.players[1].hand.map((c) => c.id)).toEqual(['rm-gasoline-0']);
+		const played = applyMove(took, { type: 'play', cardId: 'rm-gasoline-0' });
+		expect(played.players[1].battle.at(-1)).toEqual(RM('gasoline'));
 	});
 
 	it('cannot be taken twice in a turn — the window closes with the card', () => {

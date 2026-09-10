@@ -44,8 +44,9 @@
 		</p>
 		<p class="mt-2 text-xs text-asphalt/55">
 			Only the card they just threw away, only while it's still on top, only if it's legal for you
-			right now — mileage, remedies and safeties. Their discarded hazards stay in the bin, and once
-			the deck runs dry there's no draw left to forfeit, so the rule switches off.
+			right now — mileage, remedies and safeties. Their discarded hazards stay in the bin. Once the
+			deck runs dry there's no draw left to forfeit, so taking is simply free — which is exactly
+			when the card you need is the one they just binned.
 		</p>
 	</section>
 

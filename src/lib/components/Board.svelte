@@ -3,6 +3,7 @@
 	import { base } from '$app/paths';
 	import { cardMeta, HAZARD_META, SAFETY_FOR, SAFETY_META } from '$lib/game/cards';
 	import { other, type Move, type PlayerIndex } from '$lib/game/state';
+	import { acts } from '$lib/game/text';
 	import { game } from '$lib/stores/game.svelte';
 	import { GOAL, isRolling, isSpeedLimited, isProtectedFrom, totalMiles } from '$lib/game/rules';
 	import Card from './Card.svelte';
@@ -120,10 +121,16 @@
 		if (game.isCoupFourre) {
 			return active === viewer
 				? { text: 'Coup Fourré chance!', tone: 'text-violet-300' }
-				: { text: `${s.players[active].name} is countering…`, tone: 'text-white/50' };
+				: {
+						text: `${acts(s.players[active].name, 'are countering', 'is countering')}…`,
+						tone: 'text-white/50'
+					};
 		}
 		if (interactive) return { text: 'Your turn — make a move', tone: 'text-amber-300' };
-		return { text: `${s.players[active].name} is driving`, tone: 'text-white/50' };
+		return {
+			text: acts(s.players[active].name, 'are driving', 'is driving'),
+			tone: 'text-white/50'
+		};
 	});
 
 	const discardTop = $derived(s.discardPile.at(-1) ?? null);
@@ -224,7 +231,9 @@
 			class="text-center text-xs font-semibold {takePending ? 'text-white/70' : 'text-amber-300'}
 				{interactive && (takePending || (selectedCard && whyNotPlayable)) ? '' : 'invisible'}"
 		>
-			{#if takePending}
+			{#if takePending && s.drawPile.length === 0}
+				The deck is empty — <strong class="text-emerald-300">there's no draw to give up</strong>.
+			{:else if takePending}
 				You'll keep your hand, but <strong class="text-rose-300">start your next turn without a
 					draw</strong>.
 			{:else}

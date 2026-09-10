@@ -25,6 +25,7 @@ import {
 	totalMiles
 } from './rules';
 import { computeScore } from './scoring';
+import { acts, asObject } from './text';
 
 export const HAND_SIZE = 6;
 export const MATCH_TARGET = 3000;
@@ -188,7 +189,7 @@ function doDiscard(s: GameState, cur: PlayerState, cardId: string): void {
 	if (!card) return;
 	s.discardPile.push(card);
 	s.lastDiscard = { by: cur.id, cardId: card.id };
-	log(s, { text: `${cur.name} discards ${cardMeta(card).label}`, player: cur.id, kind: 'discard' });
+	log(s, { text: `${acts(cur.name, 'discard')} ${cardMeta(card).label}`, player: cur.id, kind: 'discard' });
 	advanceTurn(s);
 }
 
@@ -201,8 +202,9 @@ function doPlay(s: GameState, cur: PlayerState, move: Extract<Move, { type: 'pla
 /**
  * House rule — take: claim the card the opponent just discarded. You keep the
  * card you drew this turn, so your hand grows by one now and you forfeit next
- * turn's draw to pay for it. Taking is *not* your move — you still play or
- * discard afterwards, the card you just took included.
+ * turn's draw to pay for it (free once the deck is spent — there is no draw
+ * left to give up). Taking is *not* your move — you still play or discard
+ * afterwards, the card you just took included.
  */
 function doTakeDiscard(s: GameState, cur: PlayerState, cardId: string): void {
 	const card = takeableDiscard(s);
@@ -210,10 +212,12 @@ function doTakeDiscard(s: GameState, cur: PlayerState, cardId: string): void {
 
 	s.discardPile.pop();
 	cur.hand.push(card);
-	cur.skipsDraw = true; // paid at the start of their next turn
+	// Paid at the start of their next turn — unless the deck is already spent,
+	// in which case there is no draw to forfeit and the take costs nothing.
+	cur.skipsDraw = s.drawPile.length > 0;
 
 	log(s, {
-		text: `${cur.name} takes ${cardMeta(card).label} from the discard pile`,
+		text: `${acts(cur.name, 'take')} ${cardMeta(card).label} from the discard pile`,
 		player: cur.id,
 		kind: 'play'
 	});
@@ -239,7 +243,7 @@ function playCard(
 			cur.distance.push(card);
 			if (card.value === 200) cur.twoHundredsPlayed++;
 			log(s, {
-				text: `${cur.name} drives ${card.value} miles`,
+				text: `${acts(cur.name, 'drive')} ${card.value} miles`,
 				player: cur.id,
 				kind: 'play'
 			});
@@ -256,7 +260,7 @@ function playCard(
 			if (card.remedy === 'endOfLimit') cur.speed.push(card);
 			else cur.battle.push(card);
 			log(s, {
-				text: `${cur.name} plays ${cardMeta(card).label}`,
+				text: `${acts(cur.name, 'play')} ${cardMeta(card).label}`,
 				player: cur.id,
 				kind: 'remedy'
 			});
@@ -267,7 +271,7 @@ function playCard(
 			take();
 			revealSafety(s, cur, card.safety);
 			log(s, {
-				text: `${cur.name} reveals ${cardMeta(card).label}`,
+				text: `${acts(cur.name, 'reveal')} ${cardMeta(card).label}`,
 				player: cur.id,
 				kind: 'safety'
 			});
@@ -287,7 +291,7 @@ function playCard(
 				s.pending = { hazard: card.hazard, card, by: cur.id, target: targetIdx };
 				s.phase = 'coupFourre';
 				log(s, {
-					text: `${cur.name} attacks ${victim.name} with ${cardMeta(card).label}…`,
+					text: `${acts(cur.name, 'attack')} ${asObject(victim.name)} with ${cardMeta(card).label}…`,
 					player: cur.id,
 					kind: 'attack'
 				});
@@ -296,7 +300,7 @@ function playCard(
 
 			landHazard(victim, card);
 			log(s, {
-				text: `${cur.name} hits ${victim.name} with ${cardMeta(card).label}`,
+				text: `${acts(cur.name, 'hit')} ${asObject(victim.name)} with ${cardMeta(card).label}`,
 				player: cur.id,
 				kind: 'attack'
 			});
@@ -320,7 +324,7 @@ function resolveCoupFourre(s: GameState, move: Move): void {
 		target.coupsFourres++;
 		s.discardPile.push(pending.card); // the attack is nullified
 		log(s, {
-			text: `${target.name} plays ${cardMeta(card).label} — Coup Fourré! (+300)`,
+			text: `${acts(target.name, 'play')} ${cardMeta(card).label} — Coup Fourré! (+300)`,
 			player: target.id,
 			kind: 'coupFourre'
 		});
@@ -335,7 +339,7 @@ function resolveCoupFourre(s: GameState, move: Move): void {
 	// Declined: the hazard lands as normal and the attacker's turn ends.
 	landHazard(target, pending.card);
 	log(s, {
-		text: `${target.name} takes the ${cardMeta(pending.card).label}`,
+		text: `${acts(target.name, 'take')} the ${cardMeta(pending.card).label}`,
 		player: target.id,
 		kind: 'attack'
 	});
@@ -378,7 +382,7 @@ function revealSafety(s: GameState, p: PlayerState, safety: Safety): void {
 function win(s: GameState, winner: PlayerIndex): void {
 	s.winner = winner;
 	s.phase = 'gameOver';
-	log(s, { text: `${s.players[winner].name} completes the trip — ${GOAL} miles! 🏁`, kind: 'win' });
+	log(s, { text: `${acts(s.players[winner].name, 'complete')} the trip — ${GOAL} miles! 🏁`, kind: 'win' });
 	endHand(s);
 }
 
@@ -411,7 +415,7 @@ function drawForTurn(s: GameState, p: PlayerState): void {
 	if (p.skipsDraw) {
 		p.skipsDraw = false;
 		log(s, {
-			text: `${p.name} skips the draw — they took the discard last turn`,
+			text: `${acts(p.name, 'skip')} the draw — the price of taking the discard`,
 			player: p.id,
 			kind: 'info'
 		});
@@ -424,7 +428,9 @@ function drawForTurn(s: GameState, p: PlayerState): void {
 function startTurn(s: GameState): void {
 	const p = s.players[s.current];
 	drawForTurn(s, p);
-	if (s.drawPile.length === 0 && p.hand.length === 0) {
+	// Out of cards and out of deck — but the opponent's discard can still revive
+	// a player with nothing in hand, so it counts as having a move.
+	if (s.drawPile.length === 0 && p.hand.length === 0 && !takeableDiscard(s)) {
 		const opp = s.players[other(s.current)];
 		if (opp.hand.length === 0) {
 			s.phase = 'gameOver';
@@ -450,7 +456,7 @@ function extraTurn(s: GameState): void {
 	if (s.phase === 'gameOver') return;
 	const p = s.players[s.current];
 	drawForTurn(s, p);
-	if (p.hand.length === 0 && s.drawPile.length === 0) {
+	if (p.hand.length === 0 && s.drawPile.length === 0 && !takeableDiscard(s)) {
 		advanceTurn(s);
 		return;
 	}
@@ -475,14 +481,15 @@ export function activePlayer(s: GameState): PlayerIndex {
  *
  * Deliberately narrow: only the *top* of the pile, only while it is still the
  * card the *opponent* discarded (any later push — a nullified Coup Fourré
- * hazard, a hazard cleared by a safety — closes the window), only cards that
- * help you (their discarded hazards stay in the bin), and only while the deck
- * still holds a draw to forfeit — once it is spent the price is free, so the
- * rule switches itself off.
+ * hazard, a hazard cleared by a safety — closes the window), and only cards
+ * that help you — their discarded hazards stay in the bin.
+ *
+ * An empty deck does *not* close the window: that is exactly the endgame where
+ * the card you need is the one they just threw away. With no draw left to
+ * forfeit the take is simply free.
  */
 export function takeableDiscard(s: GameState): Card | null {
 	if (s.phase !== 'play') return null;
-	if (s.drawPile.length === 0) return null;
 	const last = s.lastDiscard;
 	if (!last || last.by === s.current) return null;
 	const top = s.discardPile[s.discardPile.length - 1];
