@@ -200,41 +200,37 @@ function doPlay(s: GameState, cur: PlayerState, move: Extract<Move, { type: 'pla
 }
 
 /**
- * House rule — take: claim the card the opponent just discarded. You keep the
- * card you drew this turn, so your hand grows by one now and you forfeit next
- * turn's draw to pay for it (free once the deck is spent — there is no draw
- * left to give up). Taking is *not* your move — you still play or discard
- * afterwards, the card you just took included.
+ * House rule — take: play the card the opponent just discarded, straight off
+ * the pile. That play *is* your move for the turn, and because it cost you
+ * nothing from hand you also forfeit next turn's draw (free once the deck is
+ * spent — there is no draw left to give up).
  */
 function doTakeDiscard(s: GameState, cur: PlayerState, cardId: string): void {
 	const card = takeableDiscard(s);
 	if (!card || card.id !== cardId) return;
 
-	s.discardPile.pop();
-	cur.hand.push(card);
-	// Paid at the start of their next turn — unless the deck is already spent,
-	// in which case there is no draw to forfeit and the take costs nothing.
+	// Booked before the play, which hands the turn on and draws for the opponent.
 	cur.skipsDraw = s.drawPile.length > 0;
-
-	log(s, {
-		text: `${acts(cur.name, 'take')} ${cardMeta(card).label} from the discard pile`,
-		player: cur.id,
-		kind: 'play'
-	});
-	// deliberately no advanceTurn — the player still has their move
+	playCard(s, cur, card, undefined, 'discard');
 }
 
 /**
- * Play `card` from `cur`'s hand. Illegal plays are rejected *before* the card
- * is removed, so a rejected move leaves the state untouched.
+ * Play `card` for `cur`. `from` says where it comes from: the hand, or the top
+ * of the discard pile under the house rule. Illegal plays are rejected *before*
+ * the card is removed, so a rejected move leaves the state untouched.
  */
 function playCard(
 	s: GameState,
 	cur: PlayerState,
 	card: Card,
-	target: PlayerIndex | undefined
+	target: PlayerIndex | undefined,
+	from: 'hand' | 'discard' = 'hand'
 ): void {
-	const take = () => removeFromHand(cur, card.id);
+	const suffix = from === 'discard' ? ' from the discard pile' : '';
+	const take = () => {
+		if (from === 'hand') removeFromHand(cur, card.id);
+		else s.discardPile.pop();
+	};
 
 	switch (card.kind) {
 		case 'distance': {
@@ -243,7 +239,7 @@ function playCard(
 			cur.distance.push(card);
 			if (card.value === 200) cur.twoHundredsPlayed++;
 			log(s, {
-				text: `${acts(cur.name, 'drive')} ${card.value} miles`,
+				text: `${acts(cur.name, 'drive')} ${card.value} miles${suffix}`,
 				player: cur.id,
 				kind: 'play'
 			});
@@ -260,7 +256,7 @@ function playCard(
 			if (card.remedy === 'endOfLimit') cur.speed.push(card);
 			else cur.battle.push(card);
 			log(s, {
-				text: `${acts(cur.name, 'play')} ${cardMeta(card).label}`,
+				text: `${acts(cur.name, 'play')} ${cardMeta(card).label}${suffix}`,
 				player: cur.id,
 				kind: 'remedy'
 			});
@@ -271,7 +267,7 @@ function playCard(
 			take();
 			revealSafety(s, cur, card.safety);
 			log(s, {
-				text: `${acts(cur.name, 'reveal')} ${cardMeta(card).label}`,
+				text: `${acts(cur.name, 'reveal')} ${cardMeta(card).label}${suffix}`,
 				player: cur.id,
 				kind: 'safety'
 			});

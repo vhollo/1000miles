@@ -27,26 +27,23 @@
 		<h2 class="font-display text-lg font-extrabold text-asphalt">🔁 Your turn</h2>
 		<p class="mt-1 text-sm text-asphalt/75">
 			Draw a card, then play one or discard one. Tap a card to play it or discard it. You need a
-			<strong>Roll (🟢)</strong> before your first mile, and again after any blocking hazard. A
-			<strong class="text-rose-600">NO DRAW</strong> flag on the deck means you owe a draw — see
-			the house rule below.
+			<strong>Roll (🟢)</strong> before your first mile, and again after any blocking hazard.
 		</p>
 	</section>
 
 	<section class="mt-4 rounded-2xl border-2 border-amber-200 bg-amber-50 p-4">
 		<h2 class="font-display text-lg font-extrabold text-amber-600">🗑️ House rule — Take the discard</h2>
 		<p class="mt-1 text-sm text-asphalt/75">
-			If your opponent discards a card <em>you</em> can use, tap the discard pile and confirm to
-			take it. You keep everything you drew, so your hand grows by one — and you pay for it by
-			<strong>starting your next turn without a draw</strong>. Taking
-			<strong>doesn't cost your turn</strong>: you still play or discard afterwards, the card you
-			just took included.
+			If your opponent discards a card <em>you</em> can play, tap the discard pile and confirm to
+			play it <strong>straight off the pile</strong> — the miles go on your road, the remedy onto
+			your table. That play is <strong>your move for the turn</strong>. It cost you nothing from
+			hand, so you pay by <strong>starting your next turn without a draw</strong>.
 		</p>
 		<p class="mt-2 text-xs text-asphalt/55">
-			Only the card they just threw away, only while it's still on top, only if it's legal for you
-			right now — mileage, remedies and safeties. Their discarded hazards stay in the bin. Once the
-			deck runs dry there's no draw left to forfeit, so taking is simply free — which is exactly
-			when the card you need is the one they just binned.
+			Only the card they just threw away, only while it's still on top, and only if it's legal for
+			you right now — mileage, remedies and safeties. Their discarded hazards stay in the bin. Once
+			the deck runs dry there's no draw left to forfeit, so it's free — which is exactly when the
+			card you need is the one they just binned.
 		</p>
 	</section>
 

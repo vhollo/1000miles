@@ -3,24 +3,30 @@ import { base } from '$app/paths';
 
 /** How often a long-running (installed) app re-checks the server for a new build. */
 const CHECK_INTERVAL = 15 * 60_000;
+/** How long the "updating" notice stays up before the reload, so it can be read. */
+const NOTICE_MS = 1200;
+/** Retry cadence while `deferSwap` is holding the swap off. */
+const RETRY_MS = 20_000;
 
 /**
- * Keeps an installed PWA up to date.
+ * Keeps an installed PWA up to date, by itself.
  *
  * SvelteKit's built-in registration only looks for a new service worker on a
  * full page load — which an installed app may not do for days. So we register
  * ourselves and poll: on start-up, whenever the app comes back to the
- * foreground, and on a timer. A new build is downloaded in the background;
- * `ready` then turns true so the UI can offer (or silently take) the swap.
+ * foreground, and on a timer. A new build is downloaded in the background and
+ * then applied without asking; the UI only says that it is happening.
  */
 class PwaUpdater {
-	/** A new build is downloaded and waiting to take over. */
-	ready = $state(false);
-	/** Set by the app to veto the silent background swap (e.g. during an online game). */
+	/** True from the moment we commit to the swap until the page reloads. */
+	updating = $state(false);
+	/** Set by the app to hold the swap off for now (e.g. during an online game). */
 	deferSwap: () => boolean = () => false;
 
 	#reg: ServiceWorkerRegistration | null = null;
+	#ready = false;
 	#reloading = false;
+	#retry: ReturnType<typeof setTimeout> | null = null;
 
 	/** Register the worker and start watching for new versions. Call once. */
 	async start(): Promise<void> {
@@ -46,7 +52,7 @@ class PwaUpdater {
 
 		document.addEventListener('visibilitychange', () => {
 			if (document.visibilityState === 'visible') this.check();
-			else if (this.ready && !this.deferSwap()) this.apply(); // backgrounded: swap invisibly
+			this.#swap();
 		});
 		setInterval(() => this.check(), CHECK_INTERVAL);
 		this.check();
@@ -57,24 +63,48 @@ class PwaUpdater {
 		this.#reg?.update().catch(() => {});
 	}
 
-	/** Activate the waiting build and reload onto it. */
-	apply(): void {
-		const waiting = this.#reg?.waiting;
-		if (!waiting) return;
-		waiting.postMessage({ type: 'SKIP_WAITING' });
-	}
+	/** Take the new build: announce it if anyone is looking, then reload onto it. */
+	#swap(): void {
+		if (!this.#ready || this.#reloading || this.updating) return;
 
-	/** Flag `ready` once `worker` is installed — but only if it replaces a live build. */
-	#watch(worker: ServiceWorker | null): void {
-		if (!worker) return;
-		if (worker.state === 'installed' && navigator.serviceWorker.controller) {
-			this.ready = true;
+		if (this.deferSwap()) {
+			// Not a good moment (mid online game) — come back to it shortly.
+			this.#retry ??= setTimeout(() => {
+				this.#retry = null;
+				this.#swap();
+			}, RETRY_MS);
 			return;
 		}
-		worker.addEventListener('statechange', () => {
-			// No controller means this is the very first install, not an update.
-			if (worker.state === 'installed' && navigator.serviceWorker.controller) this.ready = true;
-		});
+		if (this.#retry) {
+			clearTimeout(this.#retry);
+			this.#retry = null;
+		}
+
+		// Backgrounded: nothing to announce, just swap before the user returns.
+		if (document.visibilityState !== 'visible') {
+			this.#activate();
+			return;
+		}
+		this.updating = true;
+		setTimeout(() => this.#activate(), NOTICE_MS);
+	}
+
+	/** Let the waiting worker take over; `controllerchange` then reloads us. */
+	#activate(): void {
+		this.#reg?.waiting?.postMessage({ type: 'SKIP_WAITING' });
+	}
+
+	/** Note a new build once `worker` is installed — but only if it replaces a live one. */
+	#watch(worker: ServiceWorker | null): void {
+		if (!worker) return;
+		// No controller means this is the very first install, not an update.
+		const done = () => {
+			if (worker.state !== 'installed' || !navigator.serviceWorker.controller) return;
+			this.#ready = true;
+			this.#swap();
+		};
+		worker.addEventListener('statechange', done);
+		done();
 	}
 }
 

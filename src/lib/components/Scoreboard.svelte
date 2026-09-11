@@ -34,7 +34,9 @@
 	<div class="relative mb-1 text-5xl">{matchOver ? '🏆' : '🏁'}</div>
 	<h2 id="score-title" class="font-display text-2xl font-extrabold text-asphalt">{headline}</h2>
 	<p class="mb-4 text-xs font-bold uppercase tracking-widest text-asphalt/40">
-		{matchOver ? 'Final standings' : `Hand ${r.hand} · match to ${r.matchTarget}`}
+		{matchOver
+			? `Final standings · after ${r.hand} ${r.hand === 1 ? 'hand' : 'hands'}`
+			: `Hand ${r.hand} · match to ${r.matchTarget}`}
 	</p>
 
 	<div class="space-y-3 text-left">

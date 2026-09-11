@@ -95,10 +95,15 @@
 		game.play(move);
 	}
 
-	// House rule — take the opponent's discard, against next turn's draw.
+	// With a hazard on the table or no green light, the whole hand can be dead —
+	// in which case "play or discard" is a lie and discarding is the only move.
+	const nothingPlayable = $derived(interactive && game.playableIds.size === 0);
+
+	// House rule — play the opponent's discard instead of a card of our own.
 	const takeable = $derived(interactive ? game.takeable : null);
 
-	// It costs a draw, so it asks first rather than firing on the tap.
+	// It spends the turn and next turn's draw, so it asks first rather than
+	// firing on the tap.
 	let takePending = $state(false);
 	$effect(() => {
 		if (!takeable) takePending = false;
@@ -166,18 +171,8 @@
 				>
 					{s.drawPile.length}
 				</span>
-				<!-- house rule: a draw already spent on the discard pile -->
-				{#if me.skipsDraw}
-					<span
-						class="pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-rose-500 px-1.5 py-px
-							text-[0.5rem] font-black uppercase tracking-wide text-white shadow"
-						title="You took the discard — no draw next turn"
-					>
-						no draw
-					</span>
-				{/if}
 			</div>
-			<!-- discard pile — tap the top card to claim it (house rule) -->
+			<!-- discard pile — tap the top card to play it straight off the pile -->
 			{#if discardTop}
 				<div class="relative">
 					<Card
@@ -186,7 +181,7 @@
 						playable={!!takeable}
 						selected={takePending}
 						label={takeable
-							? `Take ${cardMeta(discardTop).label} from the discard pile`
+							? `Play ${cardMeta(discardTop).label} from the discard pile`
 							: cardMeta(discardTop).label}
 						onclick={takeable
 							? () => ((takePending = !takePending), (selectedId = null))
@@ -197,7 +192,7 @@
 							class="pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 animate-bounce rounded-full
 								bg-amber-300 px-1.5 py-px text-[0.55rem] font-black uppercase tracking-wide text-asphalt shadow"
 						>
-							take
+							play
 						</span>
 					{/if}
 				</div>
@@ -232,10 +227,11 @@
 				{interactive && (takePending || (selectedCard && whyNotPlayable)) ? '' : 'invisible'}"
 		>
 			{#if takePending && s.drawPile.length === 0}
-				The deck is empty — <strong class="text-emerald-300">there's no draw to give up</strong>.
+				<strong class="text-emerald-300">Take and use the dropped card</strong> — this is your
+				move; the deck is empty, so it costs nothing more.
 			{:else if takePending}
-				You'll keep your hand, but <strong class="text-rose-300">start your next turn without a
-					draw</strong>.
+				<strong class="text-white">Take and use the dropped card</strong> — this is your move, and
+				you'll <strong class="text-rose-300">start your next turn without a draw</strong>.
 			{:else}
 				{whyNotPlayable ?? ' '}
 			{/if}
@@ -247,7 +243,7 @@
 					class="rounded-xl border-2 border-mb-blue bg-mb-blue px-4 py-2 font-display text-sm font-black text-white shadow-[0_3px_0_#102f6e]
 						transition active:translate-y-0.5 active:shadow-none"
 				>
-					Take the {cardMeta(takeable).label}
+					Play the {cardMeta(takeable).label}
 				</button>
 				<button
 					onclick={() => (takePending = false)}
@@ -282,7 +278,11 @@
 			</div>
 		{:else if interactive && takeable}
 			<p class="text-center text-[0.7rem] font-semibold uppercase tracking-widest text-amber-300">
-				tap the discard pile to take that {cardMeta(takeable).label}
+				tap the discard pile to play that {cardMeta(takeable).label}
+			</p>
+		{:else if nothingPlayable}
+			<p class="text-center text-[0.7rem] font-semibold uppercase tracking-widest text-white/40">
+				no card you can play — tap one to discard
 			</p>
 		{:else if interactive}
 			<p class="text-center text-[0.7rem] font-semibold uppercase tracking-widest text-white/30">

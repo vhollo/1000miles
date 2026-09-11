@@ -82,7 +82,7 @@
 			<Odometer {miles} accent={isViewer ? 'road' : 'rose'} />
 		</div>
 
-		<!-- current battle / speed cards -->
+		<!-- current battle card, and the speed limit only while it actually bites -->
 		<div class="flex items-end gap-1.5">
 			{#if bt}
 				<Card card={bt} size="sm" />
@@ -91,7 +91,9 @@
 					garage
 				</div>
 			{/if}
-			{#if st}
+			<!-- A spent End of Limit sits on top of the speed pile doing nothing, so
+			     the slot follows the *effect*, not the pile: shown only while limited. -->
+			{#if limited && st}
 				<Card card={st} size="sm" />
 			{/if}
 		</div>

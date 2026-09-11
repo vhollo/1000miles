@@ -370,33 +370,34 @@ describe('discard take (house rule)', () => {
 		});
 	}
 
-	it('offers the take for a remedy the player needs', () => {
+	it('offers the play for a remedy the player needs', () => {
 		const s = afterOpponentDiscard(RM('gasoline'), player({ id: 0, battle: [HZ('outOfGas')] }));
 		expect(takeableDiscard(s)?.id).toBe('rm-gasoline-0');
 		expect(legalMoves(s)).toContainEqual({ type: 'takeDiscard', cardId: 'rm-gasoline-0' });
 	});
 
-	it('adds the card to the hand and books a skipped draw, without using the turn', () => {
+	it('plays the card straight off the pile and ends the turn', () => {
 		const s = afterOpponentDiscard(RM('gasoline'), player({ id: 0, battle: [HZ('outOfGas')] }));
 		const before = s.players[0].hand.length;
 		const next = applyMove(s, { type: 'takeDiscard', cardId: 'rm-gasoline-0' });
 
-		expect(next.players[0].hand.map((c) => c.id)).toContain('rm-gasoline-0');
-		expect(next.players[0].hand.length).toBe(before + 1); // we kept our draw
-		expect(next.players[0].skipsDraw).toBe(true);
+		expect(next.players[0].battle.at(-1)).toEqual(RM('gasoline')); // it was played
+		expect(next.players[0].hand.length).toBe(before); // nothing left our hand
+		expect(next.players[0].hand.map((c) => c.id)).not.toContain('rm-gasoline-0');
 		expect(next.discardPile).toEqual([]);
-		expect(next.drawPile.length).toBe(s.drawPile.length); // the deck is untouched
-		expect(next.current).toBe(0); // still our turn — we have not moved yet
+		expect(next.players[0].skipsDraw).toBe(true); // paid next turn
+		expect(next.current).toBe(1); // that was our move
 	});
 
-	it('lets the taken card be played the same turn', () => {
-		const s = afterOpponentDiscard(RM('gasoline'), player({ id: 0, battle: [HZ('outOfGas')] }));
-		const took = applyMove(s, { type: 'takeDiscard', cardId: 'rm-gasoline-0' });
-		expect(legalMoves(took)).toContainEqual({ type: 'play', cardId: 'rm-gasoline-0' });
-
-		const played = applyMove(took, { type: 'play', cardId: 'rm-gasoline-0' });
-		expect(played.players[0].battle.at(-1)).toEqual(RM('gasoline'));
-		expect(played.current).toBe(1); // *that* was the move
+	it('drives the miles of a claimed distance card', () => {
+		const s = afterOpponentDiscard(
+			D(75, 4),
+			player({ id: 0, battle: [RM('roll')], distance: miles(100) })
+		);
+		const next = applyMove(s, { type: 'takeDiscard', cardId: 'd75-4' });
+		expect(totalMiles(next.players[0])).toBe(175);
+		expect(next.players[0].distance.map((c) => c.id)).toContain('d75-4');
+		expect(next.current).toBe(1);
 	});
 
 	it('pays the debt by skipping the next turn draw, exactly once', () => {
@@ -406,14 +407,11 @@ describe('discard take (house rule)', () => {
 			{ drawPile: miles(500) } // plenty of deck to draw from
 		);
 		const took = applyMove(s, { type: 'takeDiscard', cardId: 'rm-gasoline-0' });
-		const deck = took.drawPile.length;
+		const deck = took.drawPile.length + 1; // P1 already drew on the turn we handed over
+		expect(took.current).toBe(1);
+		expect(took.drawPile.length).toBe(deck - 1); // P1 drew normally
 
-		// our move, then P1 moves, and our next turn begins
-		const ours = applyMove(took, { type: 'discard', cardId: 'd25-0' });
-		expect(ours.current).toBe(1);
-		expect(ours.drawPile.length).toBe(deck - 1); // P1 drew normally
-
-		const back = applyMove(ours, { type: 'discard', cardId: ours.players[1].hand[0].id });
+		const back = applyMove(took, { type: 'discard', cardId: took.players[1].hand[0].id });
 		expect(back.current).toBe(0);
 		expect(back.drawPile.length).toBe(deck - 1); // …but we did not
 		expect(back.players[0].skipsDraw).toBe(false); // debt settled
@@ -431,9 +429,8 @@ describe('discard take (house rule)', () => {
 		expect(takeableDiscard(s)?.id).toBe('rm-gasoline-0');
 
 		const next = applyMove(s, { type: 'takeDiscard', cardId: 'rm-gasoline-0' });
-		expect(next.players[0].hand.map((c) => c.id)).toContain('rm-gasoline-0');
+		expect(next.players[0].battle.at(-1)).toEqual(RM('gasoline'));
 		expect(next.players[0].skipsDraw).toBe(false); // no draw left to forfeit
-		expect(next.current).toBe(0);
 	});
 
 	it('does not skip an empty-handed player who could take the discard', () => {
@@ -453,12 +450,11 @@ describe('discard take (house rule)', () => {
 		expect(legalMoves(next)).toEqual([{ type: 'takeDiscard', cardId: 'rm-gasoline-0' }]);
 
 		const took = applyMove(next, { type: 'takeDiscard', cardId: 'rm-gasoline-0' });
-		expect(took.players[1].hand.map((c) => c.id)).toEqual(['rm-gasoline-0']);
-		const played = applyMove(took, { type: 'play', cardId: 'rm-gasoline-0' });
-		expect(played.players[1].battle.at(-1)).toEqual(RM('gasoline'));
+		expect(took.players[1].battle.at(-1)).toEqual(RM('gasoline')); // played outright
+		expect(took.players[1].hand).toEqual([]);
 	});
 
-	it('cannot be taken twice in a turn — the window closes with the card', () => {
+	it('closes the window once the card has been claimed', () => {
 		const s = afterOpponentDiscard(RM('gasoline'), player({ id: 0, battle: [HZ('outOfGas')] }));
 		const once = applyMove(s, { type: 'takeDiscard', cardId: 'rm-gasoline-0' });
 		expect(takeableDiscard(once)).toBeNull();
@@ -507,29 +503,15 @@ describe('discard take (house rule)', () => {
 		expect(takeableDiscard(next)).toBeNull(); // a 25 is no use to a stopped P1
 	});
 
-	it('a taken safety is still just a card in hand until played', () => {
+	it('a claimed safety is revealed at once, and takes its extra turn without a draw', () => {
 		const s = afterOpponentDiscard(SF('extraTank'), player({ id: 0, battle: [HZ('outOfGas')] }));
+		const deck = s.drawPile.length;
 		const next = applyMove(s, { type: 'takeDiscard', cardId: 'sf-extraTank' });
-		expect(next.players[0].safeties).toEqual([]); // not revealed by the take itself
-		expect(next.current).toBe(0);
 
-		const played = applyMove(next, { type: 'play', cardId: 'sf-extraTank' });
-		expect(played.players[0].safeties).toEqual(['extraTank']);
-		expect(played.players[0].battle).toEqual([]); // the hazard was cleared
-		expect(played.current).toBe(0); // safeties grant an extra turn
-	});
-
-	it('a safety extra turn also honours the skipped draw', () => {
-		const s = afterOpponentDiscard(
-			SF('extraTank'),
-			player({ id: 0, hand: [SF('drivingAce')], battle: [HZ('outOfGas')] })
-		);
-		const took = applyMove(s, { type: 'takeDiscard', cardId: 'sf-extraTank' });
-		const deck = took.drawPile.length;
-		// revealing a safety grants another turn — and that turn's draw is the debt
-		const played = applyMove(took, { type: 'play', cardId: 'sf-drivingAce' });
-		expect(played.current).toBe(0);
-		expect(played.drawPile.length).toBe(deck);
-		expect(played.players[0].skipsDraw).toBe(false);
+		expect(next.players[0].safeties).toEqual(['extraTank']);
+		expect(next.players[0].battle).toEqual([]); // the hazard was cleared
+		expect(next.current).toBe(0); // safeties grant an extra turn…
+		expect(next.drawPile.length).toBe(deck); // …whose draw is the debt
+		expect(next.players[0].skipsDraw).toBe(false); // settled
 	});
 });
