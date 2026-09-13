@@ -4,8 +4,9 @@
 	import { base } from '$app/paths';
 	import { game } from '$lib/stores/game.svelte';
 	import SignalExchange from '$lib/components/SignalExchange.svelte';
+	import QrScanner from '$lib/components/QrScanner.svelte';
 
-	type Mode = 'menu' | 'host' | 'join' | 'manual';
+	type Mode = 'menu' | 'host' | 'join' | 'direct';
 	let mode = $state<Mode>('menu');
 
 	let roomCode = $state(''); // host's 4-digit code
@@ -13,8 +14,8 @@
 	let busy = $state(false);
 	let error = $state<string | null>(null);
 
-	// manual fallback state
-	let manualStep = $state<'choose' | 'host' | 'joinInput' | 'guest'>('choose');
+	// direct (no-server) pairing state
+	let directStep = $state<'choose' | 'host' | 'joinInput' | 'guest'>('choose');
 	let offerCode = $state('');
 	let answerCode = $state('');
 	let pasteValue = $state('');
@@ -26,8 +27,8 @@
 		const invite = hash.get('j');
 		if (invite) {
 			history.replaceState(null, '', location.pathname);
-			mode = 'manual';
-			void manualJoin(invite);
+			mode = 'direct';
+			void directJoin(invite);
 		}
 	});
 
@@ -68,12 +69,12 @@
 		}
 	}
 
-	/* ---- manual / offline fallback ---- */
+	/* ---- direct pairing, with no server in the middle ---- */
 	function shareLink(key: 'j' | 'a', code: string): string {
 		return origin ? `${origin}${base}/online#${key}=${code}` : '';
 	}
-	async function manualHost() {
-		manualStep = 'host';
+	async function directHost() {
+		directStep = 'host';
 		busy = true;
 		error = null;
 		try {
@@ -83,23 +84,23 @@
 		}
 		busy = false;
 	}
-	async function manualJoin(invite: string) {
-		manualStep = 'guest';
+	async function directJoin(invite: string) {
+		directStep = 'guest';
 		busy = true;
 		error = null;
 		try {
 			answerCode = await game.beginGuest(invite);
 		} catch {
 			error = "Couldn't read that invite.";
-			manualStep = 'joinInput';
+			directStep = 'joinInput';
 		}
 		busy = false;
 	}
-	async function manualConnect() {
+	async function directConnect(reply: string) {
 		busy = true;
 		error = null;
 		try {
-			await game.submitAnswer(pasteValue);
+			await game.submitAnswer(reply);
 		} catch {
 			error = "Couldn't read that reply.";
 		}
@@ -145,12 +146,15 @@
 			</button>
 			<button
 				onclick={() => {
-					mode = 'manual';
+					mode = 'direct';
 					error = null;
 				}}
-				class="mt-2 text-center text-sm font-bold text-white/40 underline"
+				class="rounded-xl border-2 border-white/25 bg-white/10 px-5 py-4 text-left font-display font-black text-white/90 backdrop-blur-sm transition active:translate-y-0.5"
 			>
-				No internet? Connect manually (same Wi-Fi)
+				📷 Pair by QR code
+				<span class="block text-sm font-semibold text-white/50">
+					Phone to phone, no room code — works with no internet
+				</span>
 			</button>
 		{:else if mode === 'host'}
 			{#if busy && !roomCode}
@@ -191,74 +195,94 @@
 					{busy ? 'Connecting…' : 'Join'}
 				</button>
 			</div>
-		{:else if mode === 'manual'}
-			{#if manualStep === 'choose'}
-				<p class="text-sm text-white/50">Both devices must be on the same Wi-Fi.</p>
+		{:else if mode === 'direct'}
+			{#if directStep === 'choose'}
+				<p class="text-sm text-white/60">
+					The two phones pair by showing each other a QR code and then talk directly, with no
+					server in between. Good on a Wi-Fi that won't let you online, or if the room code isn't
+					getting through.
+				</p>
+				<p class="rounded-xl bg-amber-400/10 px-3 py-2 text-xs text-amber-200/80 ring-1 ring-amber-300/25">
+					With no internet at all, both phones need this app <strong>already installed</strong> —
+					otherwise the second one has nothing to load.
+				</p>
 				<button
-					onclick={manualHost}
+					onclick={directHost}
 					class="rounded-xl border-2 border-blue-400 bg-mb-blue px-5 py-4 font-display font-black text-white shadow-[0_4px_0_#102f6e] transition active:translate-y-1 active:shadow-none"
 				>
-					📡 Host (create an invite)
+					📡 Host (show a QR code)
 				</button>
 				<button
-					onclick={() => (manualStep = 'joinInput')}
+					onclick={() => (directStep = 'joinInput')}
 					class="rounded-xl border-2 border-red-400 bg-mb-red px-5 py-4 font-display font-black text-white shadow-[0_4px_0_#9b0f0f] transition active:translate-y-1 active:shadow-none"
 				>
-					🔗 Join (paste an invite)
+					📷 Join (scan their QR code)
 				</button>
-			{:else if manualStep === 'host'}
+			{:else if directStep === 'host'}
 				{#if busy && !offerCode}
 					<p class="font-display font-bold text-white/60">Generating invite…</p>
 				{:else}
 					<SignalExchange
 						code={offerCode}
 						link={shareLink('j', offerCode)}
-						label="1 · Send this invite to your friend"
-						hint="Share the link or copy the code."
+						label="1 · Let your friend scan this"
+						hint="No camera? “Send instead” shares the link — AirDrop and Nearby Share both work with no internet."
 					/>
 					<div class="rounded-xl border-2 border-white/20 bg-white/10 p-3 backdrop-blur-sm">
-						<p class="mb-1 font-display text-sm font-black text-white">2 · Paste their reply</p>
+						<p class="mb-2 font-display text-sm font-black text-white">2 · Scan their reply</p>
+						<QrScanner onscan={(v) => directConnect(v)} />
+						<details class="mt-2">
+							<summary class="cursor-pointer text-xs font-bold text-white/40">
+								Paste the reply instead
+							</summary>
+							<textarea
+								bind:value={pasteValue}
+								rows="3"
+								placeholder="Paste the reply code or link…"
+								class="mt-2 w-full rounded-xl bg-white/90 p-2 font-mono text-xs text-asphalt outline-none ring-amber-300 focus:ring-2"
+							></textarea>
+							<button
+								onclick={() => directConnect(pasteValue)}
+								disabled={busy || !pasteValue.trim()}
+								class="mt-2 w-full rounded-xl border-2 border-green-400 bg-mb-green px-3 py-2.5 font-display font-black text-white shadow-[0_3px_0_#145a14] transition active:translate-y-0.5 active:shadow-none disabled:border-gray-500 disabled:bg-gray-500 disabled:shadow-none"
+							>
+								{busy ? 'Connecting…' : 'Connect'}
+							</button>
+						</details>
+					</div>
+				{/if}
+			{:else if directStep === 'joinInput'}
+				<div class="rounded-xl border-2 border-white/20 bg-white/10 p-3 backdrop-blur-sm">
+					<p class="mb-2 font-display text-sm font-black text-white">Scan your friend's QR code</p>
+					<QrScanner onscan={(v) => directJoin(v)} hint="Point the camera at the code on their phone." />
+					<details class="mt-2">
+						<summary class="cursor-pointer text-xs font-bold text-white/40">
+							Paste the invite instead
+						</summary>
 						<textarea
 							bind:value={pasteValue}
 							rows="3"
-							placeholder="Paste the reply code or link…"
-							class="w-full rounded-xl bg-white/90 p-2 font-mono text-xs text-asphalt outline-none ring-amber-300 focus:ring-2"
+							placeholder="Paste the invite code or link…"
+							class="mt-2 w-full rounded-xl bg-white/90 p-2 font-mono text-xs text-asphalt outline-none ring-amber-300 focus:ring-2"
 						></textarea>
 						<button
-							onclick={manualConnect}
+							onclick={() => directJoin(pasteValue)}
 							disabled={busy || !pasteValue.trim()}
-							class="mt-2 w-full rounded-xl border-2 border-green-400 bg-mb-green px-3 py-2.5 font-display font-black text-white shadow-[0_3px_0_#145a14] transition active:translate-y-0.5 active:shadow-none disabled:border-gray-500 disabled:bg-gray-500 disabled:shadow-none"
+							class="mt-2 w-full rounded-xl border-2 border-red-400 bg-mb-red px-3 py-2.5 font-display font-black text-white shadow-[0_3px_0_#9b0f0f] transition active:translate-y-0.5 active:shadow-none disabled:border-gray-500 disabled:bg-gray-500 disabled:shadow-none"
 						>
-							{busy ? 'Connecting…' : 'Connect'}
+							{busy ? 'Reading…' : 'Generate reply'}
 						</button>
-					</div>
-				{/if}
-			{:else if manualStep === 'joinInput'}
-				<div class="rounded-xl border-2 border-white/20 bg-white/10 p-3 backdrop-blur-sm">
-					<p class="mb-1 font-display text-sm font-black text-white">Paste the invite</p>
-					<textarea
-						bind:value={pasteValue}
-						rows="3"
-						placeholder="Paste the invite code or link…"
-						class="w-full rounded-xl bg-white/90 p-2 font-mono text-xs text-asphalt outline-none ring-amber-300 focus:ring-2"
-					></textarea>
-					<button
-						onclick={() => manualJoin(pasteValue)}
-						disabled={busy || !pasteValue.trim()}
-						class="mt-2 w-full rounded-xl border-2 border-red-400 bg-mb-red px-3 py-2.5 font-display font-black text-white shadow-[0_3px_0_#9b0f0f] transition active:translate-y-0.5 active:shadow-none disabled:border-gray-500 disabled:bg-gray-500 disabled:shadow-none"
-					>
-						{busy ? 'Reading…' : 'Generate reply'}
-					</button>
+					</details>
 				</div>
-			{:else if manualStep === 'guest'}
+			{:else if directStep === 'guest'}
 				{#if busy && !answerCode}
 					<p class="font-display font-bold text-white/60">Generating reply…</p>
 				{:else}
 					<SignalExchange
 						code={answerCode}
 						link={shareLink('a', answerCode)}
-						label="Send this reply back to the host"
-						hint="They'll paste it to finish connecting."
+						label="Now let the host scan this"
+						hint="They scan it to finish connecting."
 					/>
 					<div class="flex items-center justify-center gap-2 text-white/50">
 						<span class="h-3 w-3 animate-ping rounded-full bg-amber-400"></span>

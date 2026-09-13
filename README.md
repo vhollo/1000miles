@@ -5,6 +5,8 @@ fend off opponents with hazards, defend with safeties, and pull off a triumphant
 
 - **Solo vs CPU** — heuristic AI opponent.
 - **2 Players (pass & play)** — share one device; the screen hides each player's hand on hand-off.
+- **Play online** — share a 4-digit room code, or hold the two phones together and pair by QR code:
+  peer-to-peer WebRTC with no server in the middle, so it also works on a network with no internet.
 - **Full official ruleset** — distance cards, all hazards/remedies, the 4 safeties, Coup Fourré
   bonuses, and the complete scoring breakdown.
 - **Works offline** — service-worker cached app shell; installs to the home screen.
@@ -28,10 +30,15 @@ src/lib/game/        pure engine (no Svelte)
   scoring.ts         computeScore / handResult
   ai.ts              chooseMove heuristic
   *.test.ts          Vitest suites (rules invariants + AI self-play)
+src/lib/net/
+  peer.ts            WebRTC data channel + SDP handshake
+  codec.ts           deflate + base64url for the handshake blobs
+  qr.ts              dependency-free QR encoder for on-screen pairing
+  signal.ts          client for the 4-digit room-code endpoint
 src/lib/stores/
   game.svelte.ts     runes store: persistence + AI auto-play loop
 src/lib/components/   Card, Hand, Tableau, Odometer, Board, Modal, Scoreboard, …
-src/routes/          / (menu) · /play (board) · /rules (how-to)
+src/routes/          / (menu) · /play (board) · /rules (how-to) · /online (pairing)
 src/service-worker.ts  offline app-shell cache
 ```
 

@@ -383,8 +383,13 @@ export class GameStore {
  * never reads an undefined `matchScores`.
  */
 async function fetchIceServers(): Promise<RTCIceServer[]> {
+	// Direct pairing has to work with no internet at all. Offline, STUN/TURN
+	// are unreachable anyway and only make ICE gathering sit and wait, so skip
+	// them: the LAN host candidates are all two devices on one network need.
+	if (browser && !navigator.onLine) return [];
 	try {
-		const res = await fetch('/api/ice');
+		// A captive portal answers slowly rather than failing, so cap the wait.
+		const res = await fetch('/api/ice', { signal: AbortSignal.timeout(2500) });
 		if (res.ok) {
 			const { iceServers } = (await res.json()) as { iceServers: RTCIceServer[] };
 			return iceServers;

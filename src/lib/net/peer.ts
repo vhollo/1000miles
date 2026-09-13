@@ -2,8 +2,13 @@ import { decode, encode } from './codec';
 import type { NetMessage } from './protocol';
 import type { Transport } from './transport';
 
-// TURN relay candidates can take 2–4s to gather; give 9s before falling back.
+// Hard cap on gathering, for the case where nothing ever answers.
 const ICE_TIMEOUT = 9000;
+// Once candidates stop arriving we're done in practice. TURN relays that are
+// unreachable never report anything at all, so without this the handshake sat
+// out the full timeout every time — painfully obvious when the two players are
+// stood next to each other scanning a QR code.
+const ICE_SETTLE = 1200;
 
 class PeerTransport implements Transport {
 	onmessage: ((msg: NetMessage) => void) | null = null;
@@ -106,22 +111,33 @@ export async function createGuest(
 export type { PeerTransport };
 
 /**
- * Resolve once all ICE candidates are gathered (so they're inlined in the SDP
- * — we have no channel to trickle them). Falls back to a short timeout; on a
- * LAN the host candidates arrive almost immediately.
+ * Resolve once the ICE candidates have been gathered (so they're inlined in
+ * the SDP — we have no channel to trickle them). Settles shortly after the
+ * last candidate arrives rather than waiting for every configured server, and
+ * gives up entirely at `ICE_TIMEOUT`. On a LAN the host candidates arrive
+ * almost immediately.
  */
 function iceGatheringComplete(pc: RTCPeerConnection): Promise<void> {
 	if (pc.iceGatheringState === 'complete') return Promise.resolve();
 	return new Promise((resolve) => {
+		let settle: ReturnType<typeof setTimeout> | undefined;
 		const finish = () => {
 			pc.removeEventListener('icegatheringstatechange', check);
-			clearTimeout(timer);
+			pc.removeEventListener('icecandidate', onCandidate);
+			clearTimeout(settle);
+			clearTimeout(cap);
 			resolve();
 		};
 		const check = () => {
 			if (pc.iceGatheringState === 'complete') finish();
 		};
-		const timer = setTimeout(finish, ICE_TIMEOUT);
+		const onCandidate = (e: RTCPeerConnectionIceEvent) => {
+			if (!e.candidate) return finish(); // the null candidate ends gathering
+			clearTimeout(settle);
+			settle = setTimeout(finish, ICE_SETTLE);
+		};
+		const cap = setTimeout(finish, ICE_TIMEOUT);
 		pc.addEventListener('icegatheringstatechange', check);
+		pc.addEventListener('icecandidate', onCandidate);
 	});
 }
