@@ -11,7 +11,11 @@ describe('signal client', () => {
 	it('createRoom POSTs the offer and returns the code', async () => {
 		const f = vi.fn().mockResolvedValue(ok({ code: '4821' }));
 		vi.stubGlobal('fetch', f);
-		expect(await createRoom('OFFER')).toBe('4821');
+		const room = await createRoom('OFFER');
+		expect(room.code).toBe('4821');
+		// An older server doesn't send `expiresAt`; fall back rather than expire
+		// the room instantly.
+		expect(room.expiresAt).toBeGreaterThan(Date.now());
 		expect(f.mock.calls[0][0]).toBe(BASE);
 		expect(f.mock.calls[0][1].method).toBe('POST');
 		expect(JSON.parse(f.mock.calls[0][1].body)).toEqual({ offer: 'OFFER' });

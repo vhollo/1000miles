@@ -26,6 +26,8 @@ describe('codec', () => {
 		expect(extractCode('https://miles.app/online#j=ABC123')).toBe('ABC123');
 		expect(extractCode('http://localhost:5173/online#a=Zz-_9x')).toBe('Zz-_9x');
 		expect(extractCode('#j=fromhash')).toBe('fromhash');
+		// Push invites land on `#c=<room code>`, alongside the inviter's name.
+		expect(extractCode('https://miles.app/online#c=4821&n=Anna')).toBe('4821');
 	});
 
 	it('decode accepts a pasted link, not just a bare code', async () => {

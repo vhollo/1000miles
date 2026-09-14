@@ -7,6 +7,8 @@ fend off opponents with hazards, defend with safeties, and pull off a triumphant
 - **2 Players (pass & play)** — share one device; the screen hides each player's hand on hand-off.
 - **Play online** — share a 4-digit room code, or hold the two phones together and pair by QR code:
   peer-to-peer WebRTC with no server in the middle, so it also works on a network with no internet.
+- **Saved partners** — the two devices swap nicknames when they connect, so you can keep someone and
+  invite them again later with a push notification they tap to join.
 - **Full official ruleset** — distance cards, all hazards/remedies, the 4 safeties, Coup Fourré
   bonuses, and the complete scoring breakdown.
 - **Works offline** — service-worker cached app shell; installs to the home screen.
@@ -35,6 +37,15 @@ src/lib/net/
   codec.ts           deflate + base64url for the handshake blobs
   qr.ts              dependency-free QR encoder for on-screen pairing
   signal.ts          client for the 4-digit room-code endpoint
+  handshake.ts       who's who, once the channel opens
+src/lib/partners/
+  file.ts            the saved partner list (pure), types.ts, store.svelte.ts
+src/lib/push/
+  vapid.ts           ES256 request signing (RFC 8292)
+  encrypt.ts         aes128gcm payload encryption (RFC 8291)
+  send.ts            the one call that talks to a push service
+  store.ts           devices, capabilities and rate limits in Netlify Blobs
+  client.ts          permission, subscription and invites, browser side
 src/lib/stores/
   game.svelte.ts     runes store: persistence + AI auto-play loop
 src/lib/components/   Card, Hand, Tableau, Odometer, Board, Modal, Scoreboard, …
@@ -55,5 +66,29 @@ node scripts/gen-icons.mjs   # regenerate PNG app icons from static/icons/icon.s
 
 ## Deploying
 
-`npm run build` emits a fully static site to `build/` (with a `200.html` SPA fallback). Drop it on any
-static host (Netlify, Vercel, GitHub Pages, a plain bucket).
+Netlify (`@sveltejs/adapter-netlify`): prerendered pages and assets are served statically, and
+`/api/*` falls through to a single function. `npm run build` writes both.
+
+### Environment
+
+All optional — the game plays without any of them.
+
+| Variable | What it buys you |
+| --- | --- |
+| `METERED_API_KEY`, `METERED_APP_NAME` | Proper TURN relays, so peers behind mobile CGNAT can still connect. Falls back to public STUN. |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Push invitations to saved partners. Without them `/api/push/*` answers 503 and the UI hides the option. |
+
+Generate a VAPID pair with no install:
+
+```sh
+node -e "crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify']).then(async k=>{const j=await crypto.subtle.exportKey('jwk',k.privateKey);const p=Buffer.from(await crypto.subtle.exportKey('raw',k.publicKey));console.log('VAPID_PUBLIC_KEY',p.toString('base64url'));console.log('VAPID_PRIVATE_KEY',j.d)})"
+```
+
+Then `netlify env:set VAPID_PUBLIC_KEY "…"` and so on. Rotating the public key invalidates every
+existing subscription — browsers bind it at subscribe time — so partners have to re-enable
+notifications afterwards.
+
+### Working on push locally
+
+Neither `npm run dev` (no service worker: registration is skipped in dev) nor `npm run preview`
+(no functions, so `/api/*` 404s) can exercise it. Use `npx netlify serve` against a fresh build.

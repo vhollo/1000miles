@@ -12,3 +12,10 @@
   for = "/service-worker.js"
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
+
+# Signalling, ICE and push are live state. The service worker already refuses to
+# cache them; this stops any proxy in between from doing so either.
+[[headers]]
+  for = "/api/*"
+  [headers.values]
+    Cache-Control = "no-store"

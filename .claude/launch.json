@@ -8,6 +8,13 @@
 			"port": 5173
 		},
 		{
+			"comment": "Serves the build AND the Netlify functions, so /api/* works and the service worker registers. Needed for anything touching push.",
+			"name": "millebornes-netlify",
+			"runtimeExecutable": "npx",
+			"runtimeArgs": ["netlify", "serve", "--port", "8899"],
+			"port": 8899
+		},
+		{
 			"name": "millebornes-prod",
 			"runtimeExecutable": "npm",
 			"runtimeArgs": ["run", "preview", "--", "--port", "4173"],

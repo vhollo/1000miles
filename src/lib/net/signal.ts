@@ -5,16 +5,28 @@
 
 const BASE = '/api/signal';
 
+/**
+ * How long a room stays joinable. Lives here rather than in the endpoint so the
+ * client can size its own waiting window to match, instead of guessing.
+ */
+export const ROOM_TTL_MS = 10 * 60 * 1000;
+
+export interface Room {
+	code: string;
+	/** Epoch ms after which the room is gone; sent by the server, not assumed. */
+	expiresAt: number;
+}
+
 /** Host: publish the offer, get a fresh room code. */
-export async function createRoom(offer: string): Promise<string> {
+export async function createRoom(offer: string): Promise<Room> {
 	const res = await fetch(BASE, {
 		method: 'POST',
 		headers: { 'content-type': 'application/json' },
 		body: JSON.stringify({ offer })
 	});
 	if (!res.ok) throw new Error('Could not create a room');
-	const { code } = (await res.json()) as { code: string };
-	return code;
+	const { code, expiresAt } = (await res.json()) as { code: string; expiresAt?: number };
+	return { code, expiresAt: expiresAt ?? Date.now() + ROOM_TTL_MS };
 }
 
 /** Guest: fetch the host's offer for a room code (throws if the code is wrong/expired). */

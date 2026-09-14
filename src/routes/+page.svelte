@@ -3,11 +3,13 @@
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
 	import { game, hasSavedGame } from '$lib/stores/game.svelte';
+	import { partners } from '$lib/partners/store.svelte';
 	import InstallButton from '$lib/components/InstallButton.svelte';
 
 	let saved = $state(false);
 	onMount(() => {
 		saved = hasSavedGame();
+		partners.load();
 	});
 
 	function start(mode: '1p' | '2p') {
@@ -78,6 +80,15 @@
 		>
 			🛰️ Play online
 		</a>
+		{#if partners.list.length > 0}
+			<a
+				href="{base}/online?invite=1"
+				class="rounded-xl border-2 border-white/20 bg-white/10 px-5 py-3 text-center font-display text-base font-bold text-white/80
+					backdrop-blur-sm transition hover:bg-white/20 active:translate-y-0.5"
+			>
+				🔔 Invite a partner
+			</a>
+		{/if}
 		<a
 			href="{base}/rules"
 			class="rounded-xl border-2 border-white/20 bg-white/10 px-5 py-3 text-center font-display text-base font-bold text-white/80

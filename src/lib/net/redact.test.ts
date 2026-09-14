@@ -30,4 +30,13 @@ describe('redactFor', () => {
 		expect(s.seed).toBe(5);
 		expect(s.drawPile.some((c) => c.id.startsWith('hidden-'))).toBe(false);
 	});
+
+	it('lets both players\' names through, since that is how the guest learns them', () => {
+		const s = createGame({ mode: '2p', seed: 5, names: ['Anna', 'Bob'] });
+		const view = redactFor(s, 1);
+
+		expect(view.players.map((p) => p.name)).toEqual(['Anna', 'Bob']);
+		// The flip side of that: anything secret must never be parked on the game
+		// state, because it would be cloned straight into the guest's copy.
+	});
 });

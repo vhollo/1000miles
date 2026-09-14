@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="Mille Bornes">
+	<!--
+		Notification badge: the kilometre stone from the app icon, flattened to a
+		silhouette. Android draws a badge from the alpha channel alone, at roughly
+		24px, so there is no room for colour or detail. iOS ignores it entirely.
+	-->
+	<rect x="31" y="16" width="34" height="64" rx="17" fill="#ffffff" />
+</svg>

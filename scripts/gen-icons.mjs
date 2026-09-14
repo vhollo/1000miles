@@ -13,11 +13,15 @@ const targets = [
 	{ size: 192, file: 'icon-192.png' },
 	{ size: 512, file: 'icon-512.png' },
 	{ size: 512, file: 'icon-maskable-512.png' },
-	{ size: 180, file: 'apple-touch-icon.png' }
+	{ size: 180, file: 'apple-touch-icon.png' },
+	// Android's notification badge — its own flat silhouette, not the app icon,
+	// which is a full-bleed square and would render as a solid blob.
+	{ size: 96, file: 'icon-badge-96.png', source: 'icon-badge.svg' }
 ];
 
-for (const { size, file } of targets) {
-	await sharp(svg, { density: 512 })
+for (const { size, file, source } of targets) {
+	const art = source ? readFileSync(join(iconsDir, source)) : svg;
+	await sharp(art, { density: 512 })
 		.resize(size, size)
 		.png()
 		.toFile(join(iconsDir, file));

@@ -13,15 +13,23 @@ import type { Card } from '$lib/game/cards';
 import type { GameState, Move, PlayerIndex } from '$lib/game/state';
 import { createGuest, createHost } from '$lib/net/peer';
 import { extractCode } from '$lib/net/codec';
-import { createRoom, fetchAnswer, fetchOffer, postAnswer } from '$lib/net/signal';
+import { createRoom, fetchAnswer, fetchOffer, postAnswer, type Room } from '$lib/net/signal';
 import { redactFor } from '$lib/net/redact';
 import { GUEST_SEAT, HOST_SEAT, hostApplyGuestMove } from '$lib/net/session';
 import type { Transport } from '$lib/net/transport';
 import type { NetMessage } from '$lib/net/protocol';
+import { HELLO_GRACE_MS, readHello, settleNames, type Hello } from '$lib/net/handshake';
 
 const STORAGE_KEY = 'millebornes:save:v1';
 const AI_DELAY = 750; // ms between AI moves, so the table is readable
+/** Names used before the peers have introduced themselves. */
 const ONLINE_NAMES: [string, string] = ['Host', 'Guest'];
+/** How long a host watching a room code on screen waits for someone to join. */
+const WATCH_MS = 180_000;
+/** Poll briskly for this long, then ease off. */
+const EAGER_POLL_MS = 60_000;
+const POLL_FAST_MS = 1500;
+const POLL_SLOW_MS = 5000;
 
 export type Role = 'host' | 'guest' | null;
 
@@ -40,11 +48,25 @@ export class GameStore {
 	seat = $state<PlayerIndex>(0);
 	connected = $state(false);
 	netError = $state<string | null>(null);
+	/** Who is on the other end, once they have said hello. */
+	peer = $state<Hello | null>(null);
+	/** True once the board names are decided — with or without a greeting. */
+	namesSettled = $state(false);
+	/** The peer has finished with the lobby. */
+	peerReady = $state(false);
+	/** The game proper has begun; the lobby hands over to the board. */
+	started = $state(false);
+	/** A capability the peer just handed us, for the lobby to store. */
+	peerToken = $state<string | null>(null);
+
+	/** Our own nickname and peer id, set from the partner store on start-up. */
+	identity: Hello = { peerId: '', name: '' };
 
 	#timer: ReturnType<typeof setTimeout> | null = null;
 	#gen = 0; // bumped on new game / clear to invalidate stale AI timers
 	#transport: Transport | null = null;
 	#acceptAnswer: ((code: string) => Promise<void>) | null = null;
+	#helloTimer: ReturnType<typeof setTimeout> | null = null;
 
 	/* ---- queries ---- */
 
@@ -163,7 +185,12 @@ export class GameStore {
 	/** Start a brand-new match. Host re-deals + broadcasts; guest asks the host. */
 	rematch(): void {
 		if (this.role === 'host') {
-			this.state = createGame({ mode: '2p', names: ONLINE_NAMES });
+			// Carry the players' real names into the new match, rather than
+			// dropping back to the placeholders.
+			const names = this.state
+				? ([this.state.players[0].name, this.state.players[1].name] as [string, string])
+				: ONLINE_NAMES;
+			this.state = createGame({ mode: '2p', names });
 			this.#broadcast();
 		} else if (this.role === 'guest') {
 			this.#transport?.send({ t: 'rematch' });
@@ -212,15 +239,40 @@ export class GameStore {
 
 	/* ---- online via 4-digit room code (Netlify signaling) ---- */
 
-	/** Host: publish an offer, get a room code, and poll for the guest's answer. */
-	async hostRoom(): Promise<string> {
+	/**
+	 * Host: publish an offer, get a room code, and poll for the guest's answer.
+	 *
+	 * `waitForRoomLife` keeps polling for as long as the room is actually
+	 * joinable. That matters for a pushed invite, which may well be tapped
+	 * minutes later; someone watching a room code on screen would rather be
+	 * told sooner that nobody came.
+	 */
+	async hostRoom(opts: { waitForRoomLife?: boolean } = {}): Promise<Room> {
 		const iceServers = await fetchIceServers();
 		const { transport, offerCode } = await createHost(iceServers);
 		this.#acceptAnswer = (code) => transport.accept(code);
 		this.#attach('host', transport);
-		const code = await createRoom(offerCode);
-		this.#pollForAnswer(code);
-		return code;
+		const room = await createRoom(offerCode);
+		this.#pollForAnswer(room, opts.waitForRoomLife ? room.expiresAt - Date.now() : WATCH_MS);
+		return room;
+	}
+
+	/** Lobby: tell the peer we are done here. */
+	markReady(): void {
+		this.#transport?.send({ t: 'ready' });
+	}
+
+	/** Lobby: hand the peer the capability to invite us later. */
+	sendPartnerToken(token: string): void {
+		this.#transport?.send({ t: 'partner', token });
+	}
+
+	/** Host: leave the lobby. Both sides follow `started` to the board. */
+	startOnline(): void {
+		if (this.role !== 'host') return;
+		this.started = true;
+		this.#transport?.send({ t: 'start' });
+		this.#broadcast();
 	}
 
 	/** Guest: fetch the host's offer for a code and send back the answer. */
@@ -242,18 +294,66 @@ export class GameStore {
 		this.seat = role === 'host' ? HOST_SEAT : GUEST_SEAT;
 		this.connected = transport.open;
 		this.netError = null;
+		this.peer = null;
+		this.namesSettled = false;
+		this.peerReady = false;
+		this.started = false;
+		this.peerToken = null;
 		this.#transport = transport;
 
 		transport.onopen = () => {
 			this.connected = true;
-			if (role === 'host') this.#broadcast(); // send the starting position
+			this.#sayHello();
 		};
 		transport.onclose = () => {
 			this.connected = false;
 		};
 		transport.onmessage = (msg) => this.#handleNet(msg);
 
-		this.state = role === 'host' ? createGame({ mode: '2p', names: ONLINE_NAMES }) : null;
+		// The host deals only once it knows what to call both players — see
+		// `#settleNames`. Until then there is no game, which is what the lobby
+		// screen covers.
+		this.state = null;
+		if (transport.open) this.#sayHello();
+	}
+
+	/** Introduce ourselves, and bound how long we wait to hear back. */
+	#sayHello(): void {
+		const gen = this.#gen;
+		this.#transport?.send({
+			t: 'hello',
+			proto: 1,
+			peerId: this.identity.peerId,
+			name: this.identity.name
+		});
+		if (this.#helloTimer) clearTimeout(this.#helloTimer);
+		this.#helloTimer = setTimeout(() => {
+			// Nothing came back: the peer is on a build from before `hello` existed.
+			if (gen === this.#gen && !this.namesSettled) this.#settleNames();
+		}, HELLO_GRACE_MS);
+	}
+
+	/**
+	 * Fix the two board names, and — on the host — deal the opening hand.
+	 *
+	 * Dealing here rather than in `#attach` is deliberate: `createGame` writes
+	 * the players' names into the first log line, so a game created before the
+	 * greeting arrives would be stamped "Host vs Guest" forever.
+	 */
+	#settleNames(): void {
+		if (this.namesSettled) return;
+		this.namesSettled = true;
+		if (this.#helloTimer) {
+			clearTimeout(this.#helloTimer);
+			this.#helloTimer = null;
+		}
+		if (this.role !== 'host') return;
+
+		const names = this.peer
+			? settleNames(this.identity.name, this.peer)
+			: settleNames(this.identity.name, null);
+		this.state = createGame({ mode: '2p', names });
+		this.#broadcast();
 	}
 
 	#handleNet(msg: NetMessage): void {
@@ -279,6 +379,25 @@ export class GameStore {
 			case 'bye':
 				this.connected = false;
 				break;
+			case 'hello': {
+				const hello = readHello(msg);
+				if (!hello) break;
+				this.peer = hello;
+				this.#settleNames();
+				break;
+			}
+			case 'ready':
+				this.peerReady = true;
+				break;
+			case 'start':
+				// The host has left the lobby; follow them to the board.
+				if (this.role === 'guest') this.started = true;
+				break;
+			case 'partner':
+				// Held for the lobby to save; the game store has no business
+				// knowing where partner records live.
+				if (typeof msg.token === 'string') this.peerToken = msg.token;
+				break;
 		}
 	}
 
@@ -291,18 +410,25 @@ export class GameStore {
 		}
 	}
 
-	/** Host: poll the room until the guest's answer arrives, then complete. */
-	#pollForAnswer(code: string): void {
+	/**
+	 * Host: poll the room until the guest's answer arrives, then complete.
+	 *
+	 * Brisk at first, when someone is most likely staring at the screen, then
+	 * slower — a long wait for a pushed invite shouldn't mean hundreds of
+	 * requests.
+	 */
+	#pollForAnswer(room: Room, budgetMs: number): void {
 		const gen = this.#gen;
 		const start = Date.now();
 		const tick = async () => {
 			if (gen !== this.#gen || this.connected) return; // cancelled or done
-			if (Date.now() - start > 180_000) {
+			const waited = Date.now() - start;
+			if (waited > budgetMs) {
 				this.netError = 'No one joined in time. Start a new room.';
 				return;
 			}
 			try {
-				const answer = await fetchAnswer(code);
+				const answer = await fetchAnswer(room.code);
 				if (gen !== this.#gen) return;
 				if (answer && this.#acceptAnswer) {
 					await this.#acceptAnswer(answer);
@@ -312,9 +438,9 @@ export class GameStore {
 			} catch {
 				/* transient network hiccup — keep polling */
 			}
-			setTimeout(tick, 1500);
+			setTimeout(tick, waited < EAGER_POLL_MS ? POLL_FAST_MS : POLL_SLOW_MS);
 		};
-		setTimeout(tick, 1500);
+		setTimeout(tick, POLL_FAST_MS);
 	}
 
 	/** Flag an error if the peer connection doesn't open shortly after the handshake. */
@@ -337,10 +463,19 @@ export class GameStore {
 			this.#transport.close();
 			this.#transport = null;
 		}
+		if (this.#helloTimer) {
+			clearTimeout(this.#helloTimer);
+			this.#helloTimer = null;
+		}
 		this.#acceptAnswer = null;
 		this.role = null;
 		this.connected = false;
 		this.netError = null;
+		this.peer = null;
+		this.namesSettled = false;
+		this.peerReady = false;
+		this.started = false;
+		this.peerToken = null;
 	}
 
 	#scheduleAI(): void {
