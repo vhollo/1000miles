@@ -20,8 +20,12 @@ import type { VapidConfig } from './vapid';
  * `$lib/push/client`.
  */
 export function vapidConfig(): VapidConfig | null {
-	const publicKey = env.VAPID_PUBLIC_KEY;
-	const privateKey = env.VAPID_PRIVATE_KEY;
+	// Trimmed: a key pasted into the Netlify UI easily picks up a stray space or
+	// newline, which would then be fed straight into the JWK and reject the key.
+	const publicKey = env.VAPID_PUBLIC_KEY?.trim();
+	const privateKey = env.VAPID_PRIVATE_KEY?.trim();
 	if (!publicKey || !privateKey) return null;
-	return { publicKey, privateKey, subject: env.VAPID_SUBJECT || 'https://millebornes.netlify.app' };
+	// A contact address for the push service, in case this app ever misbehaves.
+	// `mailto:` or `https:` only; the site's own URL is a sane default.
+	return { publicKey, privateKey, subject: env.VAPID_SUBJECT?.trim() || 'https://1000miles.win' };
 }

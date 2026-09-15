@@ -6,16 +6,20 @@
   command = "npm run build"
   publish = "build"
 
+# Header names are lowercase here to match the `_headers` file the SvelteKit
+# adapter generates — Netlify merges the two and warns if the same header shows
+# up in two different cases.
+
 # The worker script itself must never come back stale, or an installed app can
 # sit on an old build after a deploy.
 [[headers]]
   for = "/service-worker.js"
   [headers.values]
-    Cache-Control = "public, max-age=0, must-revalidate"
+    cache-control = "public, max-age=0, must-revalidate"
 
 # Signalling, ICE and push are live state. The service worker already refuses to
 # cache them; this stops any proxy in between from doing so either.
 [[headers]]
   for = "/api/*"
   [headers.values]
-    Cache-Control = "no-store"
+    cache-control = "no-store"
