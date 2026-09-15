@@ -39,19 +39,32 @@
 /* ---- Base ---------------------------------------------------------------- */
 :root {
 	color-scheme: light;
+
+	/* Middle stop of the felt gradient, doubling as its flat fallback colour. */
+	--felt-base: #162e18;
 }
 
-html,
-body {
+html {
 	height: 100%;
+	/* iOS fills the strips that sit outside the laid-out page — the safe areas
+	   behind the status bar and the home indicator, plus any overscroll — with
+	   the document's flat background *colour*. The felt is a gradient image, and
+	   a gradient leaves that colour transparent, so the home-indicator strip came
+	   up white until a scroll forced a repaint. An opaque colour on the root
+	   element is painted across the whole canvas whatever the layout does. */
+	background-color: var(--felt-base);
 }
 
 body {
+	min-height: 100%;
 	font-family: var(--font-body);
 	color: var(--color-asphalt);
-	/* Dark green felt — card-table aesthetic */
-	background: linear-gradient(160deg, #1e4022 0%, #162e18 60%, #1a3820 100%);
-	background-attachment: fixed;
+	/* Dark green felt — card-table aesthetic. Deliberately not
+	   `background-attachment: fixed`: pinning the gradient to the layout viewport
+	   is what left iOS repainting the strip below it a scroll late. */
+	background-color: var(--felt-base);
+	background-image: linear-gradient(160deg, #1e4022 0%, var(--felt-base) 60%, #1a3820 100%);
+	background-repeat: no-repeat;
 	-webkit-tap-highlight-color: transparent;
 	overscroll-behavior: none;
 }
