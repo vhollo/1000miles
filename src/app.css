@@ -40,8 +40,10 @@
 :root {
 	color-scheme: light;
 
-	/* Middle stop of the felt gradient, doubling as its flat fallback colour. */
-	--felt-base: #162e18;
+	/* The gradient's LAST stop. Anything the gradient does not reach falls back to
+	   this, so the fallback continues the felt in the exact colour it ended on and
+	   the join is invisible — a mid-gradient colour here would show as a seam. */
+	--felt-end: #1a3820;
 }
 
 html {
@@ -52,7 +54,7 @@ html {
 	   a gradient leaves that colour transparent, so the home-indicator strip came
 	   up white until a scroll forced a repaint. An opaque colour on the root
 	   element is painted across the whole canvas whatever the layout does. */
-	background-color: var(--felt-base);
+	background-color: var(--felt-end);
 }
 
 body {
@@ -62,8 +64,12 @@ body {
 	/* Dark green felt — card-table aesthetic. Deliberately not
 	   `background-attachment: fixed`: pinning the gradient to the layout viewport
 	   is what left iOS repainting the strip below it a scroll late. */
-	background-color: var(--felt-base);
-	background-image: linear-gradient(160deg, #1e4022 0%, var(--felt-base) 60%, #1a3820 100%);
+	background-color: var(--felt-end);
+	/* Vertical on purpose. At an angle the box's bottom edge spans a whole range
+	   of the gradient (~18% of it at 160deg), so no single fallback colour can
+	   meet it and the join shows as a faint band. Straight down, every pixel of
+	   that edge is the 100% stop, which is exactly --felt-end. */
+	background-image: linear-gradient(to bottom, #1e4022 0%, #162e18 60%, var(--felt-end) 100%);
 	background-repeat: no-repeat;
 	-webkit-tap-highlight-color: transparent;
 	overscroll-behavior: none;
