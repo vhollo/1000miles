@@ -1,6 +1,13 @@
 import type { Card, Hazard } from './cards';
 import { legalMoves, takeableDiscard } from './engine';
-import { GOAL, canPlayDistance, isRolling, isSpeedLimited, totalMiles } from './rules';
+import {
+	GOAL,
+	canPlayDistance,
+	canPlayRemedy,
+	isRolling,
+	isSpeedLimited,
+	totalMiles
+} from './rules';
 import { other, type GameState, type Move, type PlayerState } from './state';
 
 type PlayMove = Extract<Move, { type: 'play' }>;
@@ -81,8 +88,8 @@ export function chooseMove(s: GameState): Move {
 	// 8. Bank a safety (points + an extra turn) when nothing better.
 	if (safetyPlays.length) return safetyPlays[0];
 
-	// 9. Discard the least useful card.
-	return discardChoice(me);
+	// 9. Discard the least useful card we can afford to hand over.
+	return discardChoice(me, opp);
 }
 
 /**
@@ -136,13 +143,18 @@ function bestAttack(attacks: PlayMove[], card: (id: string) => Card): PlayMove {
 	});
 }
 
-/** Score a card's "discardability" (higher = let it go first). */
+/**
+ * Score a card's "discardability" — what letting it go costs *us*
+ * (higher = let it go first). Mileage is graded by the points it carries, so
+ * a 25 is small change we can trade away while a 200 is the card of the hand;
+ * that spread is what lets `giftRisk` below trade denial against points.
+ */
 function discardScore(c: Card, hand: Card[]): number {
 	switch (c.kind) {
 		case 'safety':
 			return -100; // never willingly discard a safety
 		case 'distance':
-			return -10 - c.value / 100; // distance is points; keep big ones longest
+			return -8 - c.value / 10; // distance is points; keep big ones longest
 		case 'hazard':
 			return 8; // situational ammunition
 		case 'remedy': {
@@ -155,11 +167,49 @@ function discardScore(c: Card, hand: Card[]): number {
 	}
 }
 
-function discardChoice(me: PlayerState): Move {
+/**
+ * House rule: a discard lands face up in front of an opponent who may claim it
+ * on their very next turn, so every discard is also a *gift*. This scores how
+ * much the card would be worth to them right now — 0 when they cannot take it
+ * at all — and is subtracted from `discardScore`, so a card that is merely
+ * spare to us is never thrown at a player waiting for exactly that card.
+ *
+ * The eligibility test mirrors `takeableDiscard` from their seat: they may only
+ * claim a card they could legally play the moment they pick it up, and their
+ * hazards stay in the bin. The weights share `discardScore`'s scale, so a real
+ * gift sinks below the cheapest mileage we are holding but still outranks the
+ * long hauls: denial is worth a few points, not any number of them.
+ */
+function giftRisk(c: Card, opp: PlayerState): number {
+	switch (c.kind) {
+		case 'hazard':
+			return 0; // hazards are never takeable
+		case 'safety':
+			return 40; // always takeable: 100 points, an extra turn, and immunity
+		case 'remedy': {
+			if (!canPlayRemedy(opp, c.remedy)) return 0;
+			// A Roll is what actually restarts them, so it is the worst to hand
+			// over. A hazard remedy leaves them still needing one. Lifting a
+			// limit only bites while they are moving.
+			if (c.remedy === 'roll') return 18;
+			if (c.remedy === 'endOfLimit') return isRolling(opp) ? 16 : 8;
+			return 12;
+		}
+		case 'distance': {
+			if (!canPlayDistance(opp, c.value)) return 0;
+			if (totalMiles(opp) + c.value === GOAL) return 1000; // never hand over the hand
+			// The miles we would be donating, at half the weight our own
+			// mileage carries: they still pay a draw to pick it up.
+			return c.value / 25;
+		}
+	}
+}
+
+function discardChoice(me: PlayerState, opp: PlayerState): Move {
 	let worst = me.hand[0];
 	let worstScore = -Infinity;
 	for (const c of me.hand) {
-		const sc = discardScore(c, me.hand);
+		const sc = discardScore(c, me.hand) - giftRisk(c, opp);
 		if (sc > worstScore) {
 			worstScore = sc;
 			worst = c;
